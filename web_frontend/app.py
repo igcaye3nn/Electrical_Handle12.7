@@ -122,7 +122,9 @@ def init_yolo_model():
         return False
     
     # 首先尝试加载专用模型
-    model_path = '/Users/doujiangyangcong/Desktop/jyc/UAV20241021_system/best_multi_device_model.pt'
+    # 计算相对路径：从web_frontend目录回到项目根目录
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    model_path = os.path.join(base_dir, 'best_multi_device_model.pt')
     
     try:
         logger.info(f"尝试加载多设备专用模型: {model_path}")
@@ -358,7 +360,7 @@ def find_matching_images(filename):
         tick = filename.split('-')[0] if '-' in filename else os.path.splitext(filename)[0]
         logger.info(f"提取的tick: {tick}")
         
-        test_base_path = '/Users/doujiangyangcong/Desktop/jyc/UAV20241021_system/test'
+        test_base_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'test')
         
         # 查找路径
         thermal_paths = [

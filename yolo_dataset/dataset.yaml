@@ -1,7 +1,7 @@
 # UAV20241021 温度检测数据集配置
 # 数据策略: 温度数据驱动训练, 原始图像仅用于效果展示
 
-path: /Users/doujiangyangcong/Desktop/jyc/UAV20241021_system/yolo_dataset
+path: ./yolo_dataset
 train: images/train
 val: images/train  # 使用相同数据用于验证 (小数据集)
 
