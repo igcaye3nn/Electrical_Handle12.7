@@ -1,0 +1,22 @@
+# 输电设备红外热成像智能检测系统依赖包
+
+# Web框架
+Flask==2.3.3
+Flask-CORS==4.0.0
+
+# 计算机视觉和图像处理
+opencv-python==4.8.1.78
+Pillow==10.0.1
+ultralytics==8.0.196
+
+# 数据处理
+numpy==1.24.3
+pandas==2.0.3
+
+# 深度学习
+torch==2.0.1
+torchvision==0.15.2
+
+# 工具库
+Werkzeug==2.3.7
+matplotlib==3.7.2

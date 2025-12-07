@@ -1,0 +1,23 @@
+{
+    "python.defaultInterpreterPath": "/home/tb/anaconda3/envs/jyc_conda/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "python.terminal.activateEnvInCurrentTerminal": true,
+    "python.condaPath": "/home/tb/anaconda3/bin/conda",
+    "python.envFile": "${workspaceFolder}/.env",
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": false,
+    "python.linting.flake8Enabled": true,
+    "python.formatting.provider": "black",
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.typeCheckingMode": "basic",
+    "files.associations": {
+        "*.py": "python"
+    },
+    "terminal.integrated.defaultProfile.linux": "bash",
+    "terminal.integrated.profiles.linux": {
+        "bash": {
+            "path": "/bin/bash",
+            "args": ["-c", "source /home/tb/anaconda3/etc/profile.d/conda.sh && conda activate jyc_conda && exec bash"]
+        }
+    }
+}

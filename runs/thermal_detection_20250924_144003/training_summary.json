@@ -1,0 +1,33 @@
+{
+    "training_info": {
+        "timestamp": "2025-09-24 14:41:15",
+        "total_epochs": 101,
+        "training_time_minutes": 54.1894,
+        "model_type": "YOLO11s-OBB",
+        "dataset": "UAV20241021_thermal"
+    },
+    "final_metrics": {
+        "precision": 1.0,
+        "recall": 0.79245,
+        "mAP50": 0.89618,
+        "mAP50_95": 0.71786
+    },
+    "training_losses": {
+        "final_box_loss": 1.1274,
+        "final_cls_loss": 1.00671,
+        "final_dfl_loss": 2.01842
+    },
+    "validation_losses": {
+        "final_val_box_loss": 1.01257,
+        "final_val_cls_loss": 0.78377,
+        "final_val_dfl_loss": 2.19391
+    },
+    "model_paths": {
+        "best_model": "/home/tb/jyc/UAV20241021_system/runs/thermal_detection_20250924_144003/weights/best.pt",
+        "last_model": "/home/tb/jyc/UAV20241021_system/runs/thermal_detection_20250924_144003/weights/last.pt"
+    },
+    "performance_summary": {
+        "f1_score": 0.8842087645401545,
+        "model_quality": "Excellent"
+    }
+}

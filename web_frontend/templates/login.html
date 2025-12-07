@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统登录 - 输电设备红外热像智能检测系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-background"></div>
+        
+        <div class="login-form-container">
+            <div class="login-header">
+                <div class="logo">
+                    <i class="fas fa-helicopter"></i>
+                </div>
+                <h1>输电设备红外热像智能检测系统</h1>
+                <p>UAV Thermal Imaging Detection System</p>
+            </div>
+            
+            <form class="login-form" id="loginForm">
+                <div class="form-group">
+                    <div class="input-wrapper">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="username" name="username" placeholder="请输入用户名" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="password" name="password" placeholder="请输入密码" required>
+                        <button type="button" class="password-toggle" id="togglePassword">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="form-group remember-me">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="rememberMe">
+                        <span class="checkmark"></span>
+                        记住登录状态
+                    </label>
+                </div>
+                
+                <button type="submit" class="login-btn" id="loginBtn">
+                    <span class="btn-text">登录系统</span>
+                    <div class="loading-spinner" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                </button>
+                
+                <div class="login-footer">
+                    <div class="system-info">
+                        <p><i class="fas fa-shield-alt"></i> 系统安全登录</p>
+                        <p><i class="fas fa-clock"></i> 服务时间: 7×24小时</p>
+                    </div>
+                </div>
+            </form>
+            
+            <!-- 错误提示 -->
+            <div class="alert alert-error" id="errorAlert" style="display: none;">
+                <i class="fas fa-exclamation-circle"></i>
+                <span id="errorMessage"></span>
+            </div>
+        </div>
+        
+        <!-- 背景装饰 -->
+        <div class="decoration-elements">
+            <div class="circle circle-1"></div>
+            <div class="circle circle-2"></div>
+            <div class="circle circle-3"></div>
+        </div>
+    </div>
+    
+    <script>
+        class LoginManager {
+            constructor() {
+                this.initializeEvents();
+            }
+            
+            initializeEvents() {
+                // 表单提交事件
+                document.getElementById('loginForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handleLogin();
+                });
+                
+                // 密码显示切换
+                document.getElementById('togglePassword').addEventListener('click', () => {
+                    this.togglePasswordVisibility();
+                });
+                
+                // 输入框焦点事件
+                document.querySelectorAll('.input-wrapper input').forEach(input => {
+                    input.addEventListener('focus', (e) => {
+                        e.target.parentNode.classList.add('focused');
+                    });
+                    
+                    input.addEventListener('blur', (e) => {
+                        if (!e.target.value) {
+                            e.target.parentNode.classList.remove('focused');
+                        }
+                    });
+                });
+            }
+            
+            togglePasswordVisibility() {
+                const passwordInput = document.getElementById('password');
+                const toggleBtn = document.getElementById('togglePassword');
+                const icon = toggleBtn.querySelector('i');
+                
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    icon.className = 'fas fa-eye-slash';
+                } else {
+                    passwordInput.type = 'password';
+                    icon.className = 'fas fa-eye';
+                }
+            }
+            
+            async handleLogin() {
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value;
+                const rememberMe = document.getElementById('rememberMe').checked;
+                
+                // 显示加载状态
+                this.setLoadingState(true);
+                this.hideError();
+                
+                try {
+                    // 调用后端登录API
+                    const response = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            username: username,
+                            password: password
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // 保存登录状态到本地
+                        const loginData = {
+                            username: username,
+                            loginTime: new Date().toLocaleString(),
+                            isLoggedIn: true
+                        };
+                        
+                        localStorage.setItem('isLoggedIn', 'true');
+                        localStorage.setItem('username', username);
+                        localStorage.setItem('loginTime', loginData.loginTime);
+                        
+                        if (rememberMe) {
+                            localStorage.setItem('rememberLogin', 'true');
+                        }
+                        
+                        // 登录成功动画
+                        this.showSuccessAnimation();
+                        
+                        // 跳转到主页
+                        setTimeout(() => {
+                            window.location.href = result.redirect || '/';
+                        }, 1500);
+                        
+                    } else {
+                        this.showError(result.message || '登录失败，请重试');
+                        this.setLoadingState(false);
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    this.showError('登录失败，请检查网络连接');
+                    this.setLoadingState(false);
+                }
+            }
+            
+            setLoadingState(loading) {
+                const btn = document.getElementById('loginBtn');
+                const btnText = btn.querySelector('.btn-text');
+                const spinner = btn.querySelector('.loading-spinner');
+                
+                if (loading) {
+                    btn.disabled = true;
+                    btnText.style.display = 'none';
+                    spinner.style.display = 'inline-block';
+                } else {
+                    btn.disabled = false;
+                    btnText.style.display = 'inline-block';
+                    spinner.style.display = 'none';
+                }
+            }
+            
+            showError(message) {
+                const errorAlert = document.getElementById('errorAlert');
+                const errorMessage = document.getElementById('errorMessage');
+                
+                errorMessage.textContent = message;
+                errorAlert.style.display = 'flex';
+                errorAlert.classList.add('shake');
+                
+                setTimeout(() => {
+                    errorAlert.classList.remove('shake');
+                }, 500);
+            }
+            
+            hideError() {
+                const errorAlert = document.getElementById('errorAlert');
+                errorAlert.style.display = 'none';
+            }
+            
+            showSuccessAnimation() {
+                const btn = document.getElementById('loginBtn');
+                btn.innerHTML = '<i class="fas fa-check"></i> 登录成功';
+                btn.classList.add('success');
+            }
+        }
+        
+        // 初始化登录管理器
+        document.addEventListener('DOMContentLoaded', () => {
+            new LoginManager();
+        });
+    </script>
+</body>
+</html>

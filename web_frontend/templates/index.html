@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>输电设备红外热像智能检测系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/temperature-diagnosis.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- 头部导航 -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-drone"></i>
+                <h1>输电设备红外热像智能检测系统</h1>
+            </div>
+            <nav class="nav-menu">
+                <a href="#dashboard" class="nav-item active">
+                    <i class="fas fa-home"></i>
+                    主页
+                </a>
+                <a href="#detection" class="nav-item">
+                    <i class="fas fa-search"></i>
+                    检测分析
+                </a>
+                <a href="#map" class="nav-item">
+                    <i class="fas fa-map"></i>
+                    地图监控
+                </a>
+                <a href="#reports" class="nav-item">
+                    <i class="fas fa-chart-bar"></i>
+                    报告中心
+                </a>
+            </nav>
+            <div class="header-actions">
+                <button class="btn-upload">
+                    <i class="fas fa-upload"></i>
+                    上传数据
+                </button>
+                <div class="user-menu">
+                    <div class="user-profile" id="userProfile">
+                        <div class="user-avatar">
+                            <i class="fas fa-user-circle"></i>
+                        </div>
+                        <div class="user-info">
+                            <span class="username" id="currentUsername">管理员</span>
+                            <span class="user-role">系统管理员</span>
+                        </div>
+                        <i class="fas fa-chevron-down dropdown-arrow"></i>
+                    </div>
+                    
+                    <!-- 用户下拉菜单 -->
+                    <div class="user-dropdown" id="userDropdown">
+                        <div class="dropdown-header">
+                            <div class="user-avatar-large">
+                                <i class="fas fa-user-circle"></i>
+                            </div>
+                            <div class="user-details">
+                                <h4 id="dropdownUsername">管理员</h4>
+                                <p id="dropdownUserRole">系统管理员</p>
+                                <p id="loginTime">登录时间: 2025-12-07 10:30</p>
+                            </div>
+                        </div>
+                        
+                        <div class="dropdown-menu">
+                            <a href="#" class="menu-item" id="profileSettings">
+                                <i class="fas fa-user-cog"></i>
+                                个人设置
+                            </a>
+                            <a href="#" class="menu-item" id="systemSettings">
+                                <i class="fas fa-cog"></i>
+                                系统设置
+                            </a>
+                            <a href="#" class="menu-item" id="changePassword">
+                                <i class="fas fa-key"></i>
+                                修改密码
+                            </a>
+                            <div class="menu-divider"></div>
+                            <a href="#" class="menu-item logout" id="logoutBtn">
+                                <i class="fas fa-sign-out-alt"></i>
+                                退出登录
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要内容区域 -->
+    <main class="main-content">
+        <!-- 仪表盘页面 -->
+        <section id="dashboard" class="page active">
+            <!-- 地图区域 - 放在顶部 -->
+            <div class="dashboard-map-section">
+                <div class="section-header">
+                    <h2>全国设备分布</h2>
+                    <div class="map-controls">
+                        <button class="btn-map-control active" data-type="all">全部</button>
+                        <button class="btn-map-control" data-type="normal">正常</button>
+                        <button class="btn-map-control" data-type="warning">警告</button>
+                        <button class="btn-map-control" data-type="danger">危险</button>
+                    </div>
+                </div>
+                <div class="map-content-wrapper">
+                    <div id="main-map" class="map-container">
+                        <div class="china-map-wrapper">
+                            <div id="china-map-chart" style="width: 100%; height: 100%;"></div>
+                        </div>
+                    </div>
+                    <div class="map-stats-sidebar">
+                        <div class="stat-card-mini">
+                            <div class="stat-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                <i class="fas fa-plug"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-label">总设备数</div>
+                                <div class="stat-value">4,473,445</div>
+                                <div class="stat-change positive">↑ +2.3%</div>
+                            </div>
+                        </div>
+                        <div class="stat-card-mini">
+                            <div class="stat-icon" style="background: linear-gradient(135deg, #4caf50 0%, #81c784 100%);">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-label">正常设备</div>
+                                <div class="stat-value">3,629,979</div>
+                                <div class="stat-change positive">↑ +1.8%</div>
+                            </div>
+                        </div>
+                        <div class="stat-card-mini">
+                            <div class="stat-icon" style="background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%);">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-label">异常设备</div>
+                                <div class="stat-value">3,567,779</div>
+                                <div class="stat-change negative">↓ -0.5%</div>
+                            </div>
+                        </div>
+                        <div class="stat-card-mini">
+                            <div class="stat-icon" style="background: linear-gradient(135deg, #f44336 0%, #e57373 100%);">
+                                <i class="fas fa-fire"></i>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-label">高温预警</div>
+                                <div class="stat-value">42,200</div>
+                                <div class="stat-change positive">↑ +5.2%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 统计卡片 -->
+            <div class="stats-grid">
+                <div class="stat-card primary">
+                    <div class="stat-icon">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>总设备数</h3>
+                        <div class="stat-value">4473445</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            +2.3%
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stat-card success">
+                    <div class="stat-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>正常设备</h3>
+                        <div class="stat-value">3629979</div>
+                        <div class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            +1.8%
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stat-card warning">
+                    <div class="stat-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>异常设备</h3>
+                        <div class="stat-value">3567779</div>
+                        <div class="stat-change negative">
+                            <i class="fas fa-arrow-down"></i>
+                            -0.5%
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stat-card danger">
+                    <div class="stat-icon">
+                        <i class="fas fa-fire"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>高温报警</h3>
+                        <div class="stat-value">42200</div>
+                        <div class="stat-change negative">
+                            <i class="fas fa-arrow-up"></i>
+                            +5.2%
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 主要内容区域 -->
+            <div class="dashboard-content">
+                <!-- 左侧内容 -->
+                <div class="left-content">
+                    <!-- 设备统计表 -->
+                    <div class="equipment-stats">
+                        <h3>设备等级统计</h3>
+                        <div class="stats-table">
+                            <div class="stats-row">
+                                <span class="voltage-level">1000kV</span>
+                                <span class="count">10 (座)</span>
+                                <div class="status-indicators">
+                                    <span class="status normal">8</span>
+                                    <span class="status warning">2</span>
+                                    <span class="status danger">0</span>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <span class="voltage-level">750kV</span>
+                                <span class="count">20 (座)</span>
+                                <div class="status-indicators">
+                                    <span class="status normal">18</span>
+                                    <span class="status warning">2</span>
+                                    <span class="status danger">0</span>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <span class="voltage-level">500kV</span>
+                                <span class="count">337 (座)</span>
+                                <div class="status-indicators">
+                                    <span class="status normal">320</span>
+                                    <span class="status warning">15</span>
+                                    <span class="status danger">2</span>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <span class="voltage-level">220kV</span>
+                                <span class="count">1733 (座)</span>
+                                <div class="status-indicators">
+                                    <span class="status normal">1650</span>
+                                    <span class="status warning">75</span>
+                                    <span class="status danger">8</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 图表区域(移到设备统计下面) -->
+                    <div class="charts-below-stats">
+                        <!-- 温度趋势图 -->
+                        <div class="chart-box-below">
+                            <h3><i class="fas fa-chart-line"></i> 温度趋势</h3>
+                            <div id="temperature-chart"></div>
+                        </div>
+
+                        <!-- 设备等级统计柱形图 -->
+                        <div class="chart-box-below">
+                            <h3><i class="fas fa-chart-bar"></i> 设备等级统计图表</h3>
+                            <div id="equipment-level-chart"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧面板 -->
+                <div class="right-panel">
+                    <!-- 实时检测状态 -->
+                    <div class="detection-status">
+                        <h3>实时检测状态</h3>
+                        <div class="detection-progress">
+                            <div class="progress-item">
+                                <span>检测进度</span>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 78%"></div>
+                                </div>
+                                <span>78%</span>
+                            </div>
+                            <div class="detection-info">
+                                <div class="info-item">
+                                    <span>当前检测:</span>
+                                    <span>DJI_0753_T</span>
+                                </div>
+                                <div class="info-item">
+                                    <span>检测精度:</span>
+                                    <span class="accuracy">89.6%</span>
+                                </div>
+                                <div class="info-item">
+                                    <span>处理速度:</span>
+                                    <span>2.3s/张</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 检测结果和状态区域(保留在右侧) -->
+                    <div class="detection-status-section">
+                    <div class="latest-results">
+                        <h3>最新检测结果</h3>
+                        <div class="results-list">
+                            <div class="result-item">
+                                <div class="result-image">
+                                    <i class="fas fa-thermometer-half"></i>
+                                </div>
+                                <div class="result-info">
+                                    <div class="result-name">DJI_0753_T</div>
+                                    <div class="result-details">
+                                        <span class="temperature high">81.9°C</span>
+                                        <span class="confidence">90.8%</span>
+                                    </div>
+                                </div>
+                                <div class="result-status danger">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="result-item">
+                                <div class="result-image">
+                                    <i class="fas fa-thermometer-half"></i>
+                                </div>
+                                <div class="result-info">
+                                    <div class="result-name">DJI_0137_T</div>
+                                    <div class="result-details">
+                                        <span class="temperature normal">77.6°C</span>
+                                        <span class="confidence">86.7%</span>
+                                    </div>
+                                </div>
+                                <div class="result-status warning">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="result-item">
+                                <div class="result-image">
+                                    <i class="fas fa-thermometer-half"></i>
+                                </div>
+                                <div class="result-info">
+                                    <div class="result-name">DJI_0769_T</div>
+                                    <div class="result-details">
+                                        <span class="temperature normal">86.5°C</span>
+                                        <span class="confidence">85.5%</span>
+                                    </div>
+                                </div>
+                                <div class="result-status normal">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 检测分析页面 -->
+        <section id="detection" class="page">
+            <!-- 温度异常诊断容器 -->
+            <div id="temperature-diagnosis-container" class="temperature-diagnosis-container">
+                <!-- 主标题 -->
+                <div class="main-header">
+                    <h2>
+                        <i class="fas fa-thermometer-half"></i>
+                        温度异常诊断系统
+                    </h2>
+                    <p>基于AI技术的电力设备温度智能诊断平台</p>
+                </div>
+
+                <!-- 工作流程 -->
+                <div class="workflow-container">
+                    <!-- 模式选择 -->
+                    <div class="section">
+                        <h3><span class="step-num">1</span>选择诊断模式</h3>
+                        <div class="mode-cards">
+                            <div class="mode-card" data-mode="device-recognition">
+                                <div class="mode-icon">🔍</div>
+                                <h4>单张图片识别（只识别设备）</h4>
+                                <p>上传红外图像，使用AI模型识别出设备类型和位置</p>
+                            </div>
+                            <div class="mode-card" data-mode="single-diagnosis">
+                                <div class="mode-icon">📊</div>
+                                <h4>单张图片诊断</h4>
+                                <p>上传红外图和温度数据，或热力图，识别设备并诊断异常</p>
+                            </div>
+                            <div class="mode-card" data-mode="batch-diagnosis">
+                                <div class="mode-icon">📁</div>
+                                <h4>批量图像诊断</h4>
+                                <p>批量上传多张图像进行集中诊断分析</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 文件上传 -->
+                    <div class="section">
+                        <h3><span class="step-num">2</span>上传文件</h3>
+                        
+                        <!-- 设备识别模式上传 -->
+                        <div class="upload-area-group" id="upload-device-recognition" style="display: none;">
+                            <div class="upload-zone">
+                                <div class="upload-box" onclick="document.getElementById('device-recognition-file').click()">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <p>点击或拖拽上传红外图像</p>
+                                    <small>支持 JPG, PNG, 最大10MB</small>
+                                </div>
+                                <input type="file" id="device-recognition-file" accept=".jpg,.jpeg,.png" style="display: none;">
+                                <div class="file-list" id="device-recognition-file-list"></div>
+                            </div>
+                        </div>
+
+                        <!-- 单张图片诊断模式上传 -->
+                        <div class="upload-area-group" id="upload-single-diagnosis" style="display: none;">
+                            <div class="upload-zone">
+                                <h4>红外图像</h4>
+                                <div class="upload-box" onclick="document.getElementById('single-thermal').click()">
+                                    <i class="fas fa-image"></i>
+                                    <p>上传红外图像</p>
+                                    <small>支持 JPG, PNG, 最大10MB</small>
+                                </div>
+                                <input type="file" id="single-thermal" accept=".jpg,.jpeg,.png" style="display: none;">
+                                <div class="file-list" id="single-thermal-file-list"></div>
+                            </div>
+                            <div class="upload-zone">
+                                <h4>温度数据（可选）</h4>
+                                <div class="upload-box" onclick="document.getElementById('single-temp-data').click()">
+                                    <i class="fas fa-file-alt"></i>
+                                    <p>上传温度数据文件</p>
+                                    <small>支持 TXT, CSV 格式，或直接上传热力图</small>
+                                </div>
+                                <input type="file" id="single-temp-data" accept=".txt,.csv,.jpg,.jpeg,.png" style="display: none;">
+                                <div class="file-list" id="single-temp-data-file-list"></div>
+                            </div>
+                        </div>
+
+                        <!-- 批量图像诊断模式上传 -->
+                        <div class="upload-area-group" id="upload-batch-diagnosis" style="display: none;">
+                            <div class="upload-zone">
+                                <h4>红外图像</h4>
+                                <div class="upload-box" onclick="document.getElementById('batch-thermal').click()">
+                                    <i class="fas fa-images"></i>
+                                    <p>上传红外图像</p>
+                                    <small>支持多选，JPG/PNG格式</small>
+                                </div>
+                                <input type="file" id="batch-thermal" multiple accept=".jpg,.jpeg,.png" style="display: none;">
+                                <div class="file-list" id="batch-thermal-file-list"></div>
+                            </div>
+                            <div class="upload-zone">
+                                <h4>温度数据（可选）</h4>
+                                <div class="upload-box" onclick="document.getElementById('batch-temp-data').click()">
+                                    <i class="fas fa-file-alt"></i>
+                                    <p>上传温度数据文件</p>
+                                    <small>支持 TXT, CSV 格式</small>
+                                </div>
+                                <input type="file" id="batch-temp-data" multiple accept=".txt,.csv" style="display: none;">
+                                <div class="file-list" id="batch-temp-data-file-list"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 参数设置 -->
+                    <div class="section">
+                        <h3><span class="step-num">3</span>参数设置</h3>
+                        <div class="params">
+                            <div class="param">
+                                <label>置信度阈值</label>
+                                <input type="range" id="confidence-slider" min="0.01" max="1" step="0.01" value="0.1">
+                                <input type="number" id="confidence-input" min="0.01" max="1" step="0.01" value="0.1">
+                            </div>
+                            <div class="param">
+                                <label>温度阈值 (°C)</label>
+                                <input type="number" id="temp-threshold" min="0" max="200" value="80">
+                            </div>
+                            <div class="param">
+                                <label>设备类型</label>
+                                <select id="device-type">
+                                    <option value="all">所有设备</option>
+                                    <option value="变压器">变压器</option>
+                                    <option value="绝缘子">绝缘子</option>
+                                    <option value="并沟线夹">并沟线夹</option>
+                                    <option value="电缆终端">电缆终端</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 操作按钮 -->
+                    <div class="section">
+                        <div class="action-buttons">
+                            <button class="btn-primary" id="start-diagnosis">
+                                <i class="fas fa-play"></i>
+                                开始诊断
+                            </button>
+                            <button class="btn-secondary" id="reset-form">
+                                <i class="fas fa-redo"></i>
+                                重置
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 进度显示 -->
+                    <div class="progress-container" id="progress-container" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
+                        <p id="progress-text">正在初始化...</p>
+                    </div>
+                </div>
+
+                <!-- 结果显示 -->
+                <div class="results-container" id="results-container" style="display: none;">
+                    <h3><i class="fas fa-chart-line"></i>诊断结果</h3>
+                    <div class="results-content" id="results-content">
+                        <!-- 结果内容将动态插入 -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 地图监控页面 -->
+        <section id="map" class="page">
+            <div class="map-page">
+                <div class="map-sidebar">
+                    <div class="map-filters">
+                        <h3>筛选条件</h3>
+                        <div class="filter-group">
+                            <label>电压等级</label>
+                            <select>
+                                <option>全部</option>
+                                <option>1000kV</option>
+                                <option>750kV</option>
+                                <option>500kV</option>
+                                <option>220kV</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>设备状态</label>
+                            <select>
+                                <option>全部</option>
+                                <option>正常</option>
+                                <option>警告</option>
+                                <option>危险</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>温度范围</label>
+                            <div class="temp-range">
+                                <input type="number" placeholder="最低温度">
+                                <span>-</span>
+                                <input type="number" placeholder="最高温度">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="device-list">
+                        <h3>设备列表</h3>
+                        <div class="device-search">
+                            <input type="text" placeholder="搜索设备...">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <div class="devices">
+                            <div class="device-item" data-status="danger">
+                                <div class="device-status"></div>
+                                <div class="device-info">
+                                    <div class="device-name">变电站A-01</div>
+                                    <div class="device-location">北京市朝阳区</div>
+                                    <div class="device-temp">89.5°C</div>
+                                </div>
+                            </div>
+                            <div class="device-item" data-status="warning">
+                                <div class="device-status"></div>
+                                <div class="device-info">
+                                    <div class="device-name">输电线B-02</div>
+                                    <div class="device-location">天津市滨海新区</div>
+                                    <div class="device-temp">75.2°C</div>
+                                </div>
+                            </div>
+                            <div class="device-item" data-status="normal">
+                                <div class="device-status"></div>
+                                <div class="device-info">
+                                    <div class="device-name">变压器C-03</div>
+                                    <div class="device-location">河北省廊坊市</div>
+                                    <div class="device-temp">45.8°C</div>
+                                </div>
+                            </div>
+                            <div class="device-item" data-status="normal">
+                                <div class="device-status"></div>
+                                <div class="device-info">
+                                    <div class="device-name">绝缘子D-04</div>
+                                    <div class="device-location">山西省太原市</div>
+                                    <div class="device-temp">42.1°C</div>
+                                </div>
+                            </div>
+                            <div class="device-item" data-status="warning">
+                                <div class="device-status"></div>
+                                <div class="device-info">
+                                    <div class="device-name">电缆终端E-05</div>
+                                    <div class="device-location">内蒙古呼和浩特市</div>
+                                    <div class="device-temp">68.3°C</div>
+                                </div>
+                            </div>
+                            <div class="device-item" data-status="normal">
+                                <div class="device-status"></div>
+                                <div class="device-info">
+                                    <div class="device-name">并沟线夹F-06</div>
+                                    <div class="device-location">辽宁省沈阳市</div>
+                                    <div class="device-temp">39.7°C</div>
+                                </div>
+                            </div>
+                            <div class="device-item" data-status="normal">
+                                <div class="device-status"></div>
+                                <div class="device-info">
+                                    <div class="device-name">接地线夹G-07</div>
+                                    <div class="device-location">吉林省长春市</div>
+                                    <div class="device-temp">38.9°C</div>
+                                </div>
+                            </div>
+                            <div class="device-item" data-status="danger">
+                                <div class="device-status"></div>
+                                <div class="device-info">
+                                    <div class="device-name">变电站H-08</div>
+                                    <div class="device-location">黑龙江省哈尔滨市</div>
+                                    <div class="device-temp">92.1°C</div>
+                                </div>
+                            </div>
+                            <div class="device-item" data-status="warning">
+                                <div class="device-status"></div>
+                                <div class="device-info">
+                                    <div class="device-name">电力电缆I-09</div>
+                                    <div class="device-location">上海市浦东新区</div>
+                                    <div class="device-temp">71.5°C</div>
+                                </div>
+                            </div>
+                            <div class="device-item" data-status="normal">
+                                <div class="device-status"></div>
+                                <div class="device-info">
+                                    <div class="device-name">接触端J-10</div>
+                                    <div class="device-location">江苏省南京市</div>
+                                    <div class="device-temp">43.2°C</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="map-main">
+                    <div class="map-header">
+                        <h2>全国设备分布监控</h2>
+                        <div class="map-controls">
+                            <button class="btn-map-control active" data-type="all">全部</button>
+                            <button class="btn-map-control" data-type="normal">正常</button>
+                            <button class="btn-map-control" data-type="warning">警告</button>
+                            <button class="btn-map-control" data-type="danger">危险</button>
+                        </div>
+                    </div>
+                    <div id="detail-map-chart" class="map-container-full"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 报告中心页面 -->
+        <section id="reports" class="page">
+            <div class="reports-page">
+                <div class="reports-header">
+                    <h2>报告中心</h2>
+                    <div class="report-actions">
+                        <button class="btn-generate">
+                            <i class="fas fa-plus"></i>
+                            生成报告
+                        </button>
+                        <button class="btn-export">
+                            <i class="fas fa-download"></i>
+                            导出数据
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="reports-grid">
+                    <div class="report-card">
+                        <div class="report-header">
+                            <h3>日检测报告</h3>
+                            <span class="report-date">2025-12-01</span>
+                        </div>
+                        <div class="report-summary">
+                            <div class="summary-row">
+                                <span>检测设备数</span>
+                                <span>156</span>
+                            </div>
+                            <div class="summary-row">
+                                <span>异常设备</span>
+                                <span class="danger">12</span>
+                            </div>
+                            <div class="summary-row">
+                                <span>平均温度</span>
+                                <span>34.2°C</span>
+                            </div>
+                        </div>
+                        <div class="report-actions">
+                            <button class="btn-view">查看</button>
+                            <button class="btn-download">下载</button>
+                        </div>
+                    </div>
+                    
+                    <div class="report-card">
+                        <div class="report-header">
+                            <h3>周检测报告</h3>
+                            <span class="report-date">2025-11-25 - 12-01</span>
+                        </div>
+                        <div class="report-summary">
+                            <div class="summary-row">
+                                <span>检测设备数</span>
+                                <span>1,092</span>
+                            </div>
+                            <div class="summary-row">
+                                <span>异常设备</span>
+                                <span class="danger">89</span>
+                            </div>
+                            <div class="summary-row">
+                                <span>平均温度</span>
+                                <span>35.8°C</span>
+                            </div>
+                        </div>
+                        <div class="report-actions">
+                            <button class="btn-view">查看</button>
+                            <button class="btn-download">下载</button>
+                        </div>
+                    </div>
+                    
+                    <div class="report-card">
+                        <div class="report-header">
+                            <h3>月检测报告</h3>
+                            <span class="report-date">2025-11</span>
+                        </div>
+                        <div class="report-summary">
+                            <div class="summary-row">
+                                <span>检测设备数</span>
+                                <span>4,567</span>
+                            </div>
+                            <div class="summary-row">
+                                <span>异常设备</span>
+                                <span class="danger">234</span>
+                            </div>
+                            <div class="summary-row">
+                                <span>平均温度</span>
+                                <span>33.1°C</span>
+                            </div>
+                        </div>
+                        <div class="report-actions">
+                            <button class="btn-view">查看</button>
+                            <button class="btn-download">下载</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="analytics-section">
+                    <h3>数据分析</h3>
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <h4>设备状态分布</h4>
+                            <div id="status-pie-chart" class="chart"></div>
+                        </div>
+                        <div class="chart-card">
+                            <h4>温度趋势分析</h4>
+                            <div id="temp-trend-chart" class="chart"></div>
+                        </div>
+                        <div class="chart-card">
+                            <h4>检测精度统计</h4>
+                            <div id="accuracy-bar-chart" class="chart"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 脚本文件 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="{{ url_for('static', filename='js/china-map-data.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/temperature-diagnosis.js') }}"></script>
+</body>
+</html>

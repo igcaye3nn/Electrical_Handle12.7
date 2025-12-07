@@ -1,0 +1,18 @@
+📊 训练监控文件
+    results.csv - 训练过程数据记录
+    results.png - 训练损失和指标曲线图
+    args.yaml - 训练时使用的完整参数配置
+📈 性能分析图表
+    BoxF1_curve.png - F1分数曲线
+    BoxP_curve.png - 精确率(Precision)曲线
+    BoxR_curve.png - 召回率(Recall)曲线
+    BoxPR_curve.png - PR曲线
+    confusion_matrix.png - 混淆矩阵
+🖼️ 训练样本可视化
+    train_batch*.jpg - 训练批次的样本图像
+    val_batch0_labels.jpg - 验证集标签可视化
+    val_batch0_pred.jpg - 验证集预测结果
+🏆 模型权重文件
+    best.pt - 最重要：验证集上表现最佳的模型
+    last.pt - 最后一轮训练的模型
+    epoch*.pt - 每10轮保存的检查点模型

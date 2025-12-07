@@ -1,0 +1,2 @@
+✅ 16个热力图文件 在 processed_data/thermal_images/ - 用于展示和对比
+✅ 16个参考图像 在 processed_data/reference_images/ - 原始图像效果对比

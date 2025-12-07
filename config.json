@@ -1,0 +1,49 @@
+{
+    "project_name": "UAV20241021_thermal_detection",
+    "version": "2.0.0",
+    "paths": {
+        "project_root": ".",
+        "data_root": "../data/20250915_输电红外数据集/UAV20241021",
+        "jpeg_images": "../data/20250915_输电红外数据集/UAV20241021/JPEGImages",
+        "temp_images": "../data/20250915_输电红外数据集/UAV20241021/TEMPImages",
+        "annotations": "../data/20250915_输电红外数据集/UAV20241021/DirectBox/roxmls",
+        "yolo_model_path": "../yolov11-OBB-main"
+    },
+    "data_processing": {
+        "input_size": [
+            640,
+            512
+        ],
+        "thermal_colormap": "COLORMAP_JET",
+        "temperature_normalize": true,
+        "save_reference_images": true
+    },
+    "model_config": {
+        "model_name": "yolo11s-obb.pt",
+        "epochs": 200,
+        "batch_size": 16,
+        "img_size": 640,
+        "device": "cuda:2",
+        "confidence_threshold": 0.5,
+        "iou_threshold": 0.7,
+        "max_detections": 300
+    },
+    "detection_method": {
+        "primary": "thermal",
+        "description": "使用温度数据进行训练和推理，原始图像仅用于效果展示对比"
+    },
+    "environment": {
+        "conda_env": "jyc_conda",
+        "python_version": ">=3.8",
+        "cuda_device": "cuda:2"
+    },
+    "visualization": {
+        "show_thermal_detection": true,
+        "show_original_comparison": true,
+        "save_results": true,
+        "result_format": [
+            "png",
+            "jpg"
+        ]
+    }
+}

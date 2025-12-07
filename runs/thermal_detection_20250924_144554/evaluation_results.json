@@ -1,0 +1,71 @@
+{
+    "dataset": {
+        "name": "UAV20241021_thermal",
+        "description": "UAV thermal infrared power equipment detection dataset",
+        "version": "1.0",
+        "date_created": "2025-09-24"
+    },
+    "model": {
+        "name": "YOLO11s-OBB",
+        "architecture": "YOLO11 with Oriented Bounding Box",
+        "input_size": [
+            640,
+            640
+        ],
+        "classes": [
+            "thermal_anomaly"
+        ],
+        "total_parameters": "estimated_11M"
+    },
+    "training": {
+        "epochs": 201,
+        "batch_size": 16,
+        "optimizer": "SGD",
+        "learning_rate": 0.0001495,
+        "training_time": 101.256,
+        "convergence": {
+            "train_box_loss": 0.68942,
+            "train_cls_loss": 0.5983,
+            "train_dfl_loss": 1.85166,
+            "val_box_loss": 0.58644,
+            "val_cls_loss": 0.44596,
+            "val_dfl_loss": 1.70982
+        }
+    },
+    "evaluation": {
+        "metrics": {
+            "precision": {
+                "value": 1.0,
+                "description": "Precision at IoU=0.50:0.95"
+            },
+            "recall": {
+                "value": 1.0,
+                "description": "Recall at IoU=0.50:0.95"
+            },
+            "mAP@0.5": {
+                "value": 0.995,
+                "description": "Mean Average Precision at IoU=0.50"
+            },
+            "mAP@0.5:0.95": {
+                "value": 0.88903,
+                "description": "Mean Average Precision at IoU=0.50:0.95"
+            }
+        },
+        "performance_analysis": {
+            "f1_score": 1.0,
+            "detection_quality": "High precision, good recall",
+            "model_reliability": "Excellent",
+            "deployment_ready": true
+        }
+    },
+    "files": {
+        "best_model": "/home/tb/jyc/UAV20241021_system/runs/thermal_detection_20250924_144554/weights/best.pt",
+        "last_model": "/home/tb/jyc/UAV20241021_system/runs/thermal_detection_20250924_144554/weights/last.pt",
+        "training_curves": [
+            "/home/tb/jyc/UAV20241021_system/runs/thermal_detection_20250924_144554/results.png",
+            "/home/tb/jyc/UAV20241021_system/runs/thermal_detection_20250924_144554/BoxPR_curve.png",
+            "/home/tb/jyc/UAV20241021_system/runs/thermal_detection_20250924_144554/confusion_matrix.png"
+        ]
+    },
+    "timestamp": "2025-09-24 14:48:00"
+}

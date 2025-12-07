@@ -1,0 +1,11 @@
+Precision：1.000
+Recall：0.321
+mAP50：0.660
+mAP50-95：0.510
+保存在UAV20241021_system/evaluation_results.json中，COCO格式，每个检测结果包含：
+    image_id: 图像文件名 (如 "DJI_0129_T")
+    file_name: 完整文件名 (如 "DJI_0129_T.jpg")
+    category_id: 类别ID (1 = electrical_equipment)
+    score: 置信度分数 (0-1之间)
+    rbox: 旋转边界框 [中心x, 中心y, 宽度, 高度, 角度]
+    poly: 8点多边形坐标 [x1,y1,x2,y2,x3,y3,x4,y4]
