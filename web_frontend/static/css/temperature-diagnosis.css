@@ -809,3 +809,19 @@
         object-fit: contain;
     }
 }
+
+/* 确保图片容器有相对定位 */
+.image-section {
+    position: relative;
+}
+
+/* 设备详情样式 */
+.detection-class-en {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #666;
+    background-color: #f8f9fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin: 4px 0;
+}

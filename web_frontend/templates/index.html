@@ -6,6 +6,7 @@
     <title>输电设备红外热像智能检测系统</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/temperature-diagnosis.css') }}">
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -313,8 +314,8 @@
                         <h3>最新检测结果</h3>
                         <div class="results-list">
                             <div class="result-item">
-                                <div class="result-image">
-                                    <i class="fas fa-thermometer-half"></i>
+                                <div class="result-icon">
+                                    <i class="fas fa-check-circle"></i>
                                 </div>
                                 <div class="result-info">
                                     <div class="result-name">DJI_0753_T</div>
@@ -329,7 +330,7 @@
                             </div>
                             
                             <div class="result-item">
-                                <div class="result-image">
+                                <div class="result-icon">
                                     <i class="fas fa-thermometer-half"></i>
                                 </div>
                                 <div class="result-info">
@@ -345,7 +346,7 @@
                             </div>
                             
                             <div class="result-item">
-                                <div class="result-image">
+                                <div class="result-icon">
                                     <i class="fas fa-thermometer-half"></i>
                                 </div>
                                 <div class="result-info">
@@ -474,8 +475,8 @@
                         <div class="params">
                             <div class="param">
                                 <label>置信度阈值</label>
-                                <input type="range" id="confidence-slider" min="0.01" max="1" step="0.01" value="0.1">
-                                <input type="number" id="confidence-input" min="0.01" max="1" step="0.01" value="0.1">
+                                <input type="range" id="confidence-slider" min="0.01" max="1" step="0.01" value="0.05">
+                                <input type="number" id="confidence-input" min="0.01" max="1" step="0.01" value="0.05">
                             </div>
                             <div class="param">
                                 <label>温度阈值 (°C)</label>
@@ -787,6 +788,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <script src="{{ url_for('static', filename='js/china-map-data.js') }}"></script>
+</script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/temperature-diagnosis.js') }}"></script>
 </body>

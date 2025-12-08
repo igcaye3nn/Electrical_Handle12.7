@@ -132,13 +132,31 @@ class UserManager {
 
     // 退出登录
     logout() {
-        localStorage.removeItem('isLoggedIn');
-        localStorage.removeItem('username');
-        localStorage.removeItem('loginTime');
-        this.showMessage('退出登录成功', 'success');
-        setTimeout(() => {
-            window.location.href = 'login.html';
-        }, 1000);
+        // 调用服务器登出API清除session
+        fetch('/api/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // 清除前端存储
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('username');
+            localStorage.removeItem('loginTime');
+            
+            this.showMessage('退出登录成功', 'success');
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 1000);
+        })
+        .catch(error => {
+            console.error('登出失败:', error);
+            // 即使API调用失败，也强制跳转到登录页面
+            localStorage.clear();
+            window.location.href = '/login';
+        });
     }
 
     // 显示消息

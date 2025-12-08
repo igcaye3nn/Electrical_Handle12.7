@@ -1367,10 +1367,31 @@ def user_info():
         }), 500
 
 @app.route('/')
-@login_required
 def index():
-    """主页"""
+    """主页 - 如果未登录则跳转到登录页面"""
+    if 'logged_in' not in session:
+        return redirect(url_for('login'))
     return render_template('index.html')
+
+@app.route('/logout')
+def logout():
+    """直接登出并跳转到登录页面"""
+    session.clear()
+    return redirect(url_for('login'))
+
+@app.route('/visualization_results/<path:filename>')
+@login_required
+def visualization_files(filename):
+    """可视化结果文件服务"""
+    # 计算项目根目录下的visualization_results路径
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    visualization_dir = os.path.join(base_dir, 'visualization_results')
+    
+    try:
+        return send_from_directory(visualization_dir, filename)
+    except Exception as e:
+        logger.error(f"获取可视化文件失败: {e}")
+        return "File not found", 404
 
 @app.route('/<path:filename>')
 def static_files(filename):
@@ -2094,12 +2115,20 @@ def single_image_diagnosis():
         
         # 处理温度数据（如果有）
         temp_data = None
+        temp_file_path = None
         if 'temperature_data' in request.files:
             temp_file = request.files['temperature_data']
             if temp_file.filename:
                 # 读取温度数据文件
                 temp_content = temp_file.read().decode('utf-8')
                 temp_data = parse_temperature_data(temp_content)
+                
+                # 保存温度数据文件到临时目录用于统计计算
+                temp_filename = secure_filename(temp_file.filename)
+                temp_file_path = os.path.join(project_root, 'temp', temp_filename)
+                os.makedirs(os.path.dirname(temp_file_path), exist_ok=True)
+                with open(temp_file_path, 'w', encoding='utf-8') as f:
+                    f.write(temp_content)
         
         # 将原始图像编码为base64用于前端显示
         thermal_image_base64 = base64.b64encode(thermal_data).decode('utf-8')
@@ -2112,11 +2141,12 @@ def single_image_diagnosis():
                 thermal_image, device['bbox']
             )
             
-            # 执行智能诊断
+            # 执行智能诊断（传递温度数据文件路径用于计算默认值）
             intelligent_diagnosis = perform_intelligent_diagnosis(
                 device['class_name'], 
                 temperature_regions, 
-                env_temp
+                env_temp,
+                temp_file_path
             )
             
             # 构建诊断结果
@@ -2402,7 +2432,7 @@ def extract_temperature_regions_from_image(thermal_image, device_bbox):
         logger.error(f"提取温度区域失败: {e}")
         return {}
 
-def perform_intelligent_diagnosis(device_type, temperature_regions, env_temp=25.0):
+def perform_intelligent_diagnosis(device_type, temperature_regions, env_temp=25.0, temp_data_file_path=None):
     """
     执行智能温度异常诊断
     
@@ -2410,6 +2440,7 @@ def perform_intelligent_diagnosis(device_type, temperature_regions, env_temp=25.
         device_type: 设备类型
         temperature_regions: 温度区域数据
         env_temp: 环境温度
+        temp_data_file_path: 温度数据文件路径，用于计算默认值
         
     Returns:
         诊断结果字典
@@ -2462,7 +2493,7 @@ def perform_intelligent_diagnosis(device_type, temperature_regions, env_temp=25.
         
         mapped_device_type = device_type_mapping.get(device_type, '避雷器')
         
-        diagnosis_results = DIAGNOSIS_ENGINE.diagnose_device(mapped_device_type, temperature_regions)
+        diagnosis_results = DIAGNOSIS_ENGINE.diagnose_device(mapped_device_type, temperature_regions, temp_data_file_path)
         
         # 确定最高严重程度
         if diagnosis_results:

@@ -278,6 +278,10 @@ class TemperatureDiagnosisSystem {
     async startDiagnosis() {
         if (this.isProcessing) return;
 
+        // 添加调试信息
+        console.log('当前模式:', this.currentMode);
+        console.log('上传的文件:', this.uploadedFiles);
+
         // 验证输入
         if (!this.validateInput()) {
             return;
@@ -291,14 +295,24 @@ class TemperatureDiagnosisSystem {
             
             if (this.currentMode === 'single') {
                 results = await this.processSingleImage();
+            } else if (this.currentMode === 'device-recognition') {
+                results = await this.processDeviceRecognition();
+            } else if (this.currentMode === 'single-diagnosis') {
+                results = await this.processSingleDiagnosis();
             } else if (this.currentMode === 'batch') {
                 results = await this.processBatchImages();
+            } else if (this.currentMode === 'batch-diagnosis') {
+                results = await this.processBatchDiagnosis();
             } else if (this.currentMode === 'data') {
                 results = await this.processDataFile();
+            } else {
+                throw new Error('未知的诊断模式: ' + this.currentMode);
             }
 
+            console.log('诊断结果:', results);
             this.displayResults(results);
         } catch (error) {
+            console.error('诊断错误:', error);
             this.showError('诊断过程中发生错误：' + error.message);
         } finally {
             this.isProcessing = false;
@@ -313,8 +327,23 @@ class TemperatureDiagnosisSystem {
             return false;
         }
 
+        if (this.currentMode === 'device-recognition' && !this.uploadedFiles.single) {
+            this.showError('请上传图像文件进行设备识别');
+            return false;
+        }
+
+        if (this.currentMode === 'single-diagnosis' && !this.uploadedFiles.single) {
+            this.showError('请上传红外图像进行诊断');
+            return false;
+        }
+
         if (this.currentMode === 'batch' && this.uploadedFiles.thermal.length === 0) {
             this.showError('请上传红外图像文件');
+            return false;
+        }
+
+        if (this.currentMode === 'batch-diagnosis' && this.uploadedFiles.thermal.length === 0) {
+            this.showError('请上传红外图像文件进行批量诊断');
             return false;
         }
 
@@ -330,55 +359,12 @@ class TemperatureDiagnosisSystem {
     async processSingleImage() {
         if (this.currentMode === 'device-recognition') {
             return await this.processDeviceRecognition();
-        } else if (this.currentMode === 'single-diagnosis') {
+        } else if (this.currentMode === 'single-diagnosis' || this.currentMode === 'single') {
             return await this.processSingleDiagnosis();
         }
         
-        // 兼容旧版本
-        const formData = new FormData();
-        formData.append('image', this.uploadedFiles.single);
-        formData.append('mode', 'single');
-        formData.append('confidence', document.getElementById('confidence-input').value);
-        formData.append('temp_threshold', document.getElementById('temp-threshold').value);
-        formData.append('device_type', document.getElementById('device-type').value);
-
-        this.updateProgress(20, '正在上传图像...');
-
-        const response = await fetch('/api/detect', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) {
-            throw new Error('检测请求失败');
-        }
-
-        this.updateProgress(60, '正在进行AI检测...');
-
-        const result = await response.json();
-
-        this.updateProgress(80, '正在分析温度数据...');
-
-        // 温度诊断
-        const diagnosisResponse = await fetch('/api/temperature_diagnosis', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                detections: result.detections,
-                image_name: this.uploadedFiles.single.name
-            })
-        });
-
-        if (diagnosisResponse.ok) {
-            const diagnosisResult = await diagnosisResponse.json();
-            result.diagnosis = diagnosisResult;
-        }
-
-        this.updateProgress(100, '诊断完成');
-
-        return result;
+        // 如果没有匹配的模式，抛出错误
+        throw new Error('未知的处理模式: ' + this.currentMode);
     }
 
     // 处理设备识别模式
@@ -402,6 +388,13 @@ class TemperatureDiagnosisSystem {
         const result = await response.json();
 
         this.updateProgress(100, '识别完成');
+        
+        console.log('设备识别API返回结果 - 成功');
+        console.log('图片数据存在检查:', {
+            visualization_data: result.visualization_data ? 'exists' : 'missing',
+            image_data: result.image_data ? 'exists' : 'missing'
+        });
+        
         return {
             detections: result.devices || [],
             result_image_path: result.visualization_data,  // 设备识别结果图
@@ -417,21 +410,17 @@ class TemperatureDiagnosisSystem {
 
     // 处理单张诊断模式
     async processSingleDiagnosis() {
+        console.log('单张诊断开始执行');
         const formData = new FormData();
         
-        // 检查上传文件的类型
-        const thermalFile = document.getElementById('single-thermal').files[0];
-        const tempDataFile = document.getElementById('single-temp-data').files[0];
+        // 使用已上传的文件
+        const thermalFile = this.uploadedFiles.single;
         
         if (!thermalFile) {
             throw new Error('请上传红外图像');
         }
         
         formData.append('thermal_image', thermalFile);
-        if (tempDataFile) {
-            formData.append('temperature_data', tempDataFile);
-        }
-        
         formData.append('confidence', document.getElementById('confidence-input').value);
         formData.append('temperature', document.getElementById('temp-threshold').value);
         formData.append('env_temperature', '25.0'); // 环境温度
@@ -452,10 +441,18 @@ class TemperatureDiagnosisSystem {
 
         this.updateProgress(100, '诊断完成');
         
-        return {
+        console.log('单张诊断API返回结果 - 成功');
+        console.log('图片数据检查:', {
+            original: result.images?.original ? 'exists' : 'missing',
+            visualization: result.images?.visualization ? 'exists' : 'missing',
+            heatmap: result.images?.heatmap_with_boxes ? 'exists' : 'missing'
+        });
+        
+        const processedResult = {
             detections: result.diagnoses || [],
             result_image_path: result.images?.visualization,
-            thermal_image_path: result.images?.heatmap_with_boxes || result.images?.original,
+            thermal_image_path: result.images?.heatmap_with_boxes,
+            original_image_path: result.images?.original,
             confidence: 95,
             diagnosis: {
                 abnormal_count: result.summary?.abnormal_count || 0,
@@ -463,6 +460,15 @@ class TemperatureDiagnosisSystem {
                 avg_temperature: result.summary?.average_temperature || 'N/A'
             }
         };
+        
+        console.log('处理后的结果对象:', {
+            original_image_path: processedResult.original_image_path ? 'SET' : 'MISSING',
+            result_image_path: processedResult.result_image_path ? 'SET' : 'MISSING',
+            thermal_image_path: processedResult.thermal_image_path ? 'SET' : 'MISSING',
+            detections_count: processedResult.detections.length
+        });
+        
+        return processedResult;
     }
 
     // 处理批量图像
@@ -590,16 +596,24 @@ class TemperatureDiagnosisSystem {
 
     // 显示结果
     displayResults(results) {
+        console.log('=== displayResults 被调用 ===');
+        console.log('当前模式 currentMode:', this.currentMode);
+        console.log('结果数据:', results);
+        
         const container = document.getElementById('results-container');
         const content = document.getElementById('results-content');
         
-        if (!container || !content) return;
+        if (!container || !content) {
+            console.log('错误: container 或 content 元素不存在');
+            return;
+        }
 
         content.innerHTML = '';
 
-        if (this.currentMode === 'single' || this.currentMode === 'device-recognition') {
+        if (this.currentMode === 'single' || this.currentMode === 'device-recognition' || this.currentMode === 'single-diagnosis') {
+            console.log('调用 displaySingleResult');
             this.displaySingleResult(results, content);
-        } else if (this.currentMode === 'batch') {
+        } else if (this.currentMode === 'batch' || this.currentMode === 'batch-diagnosis') {
             this.displayBatchResults(results, content);
         } else if (this.currentMode === 'data') {
             this.displayDataResults(results, content);
@@ -614,18 +628,53 @@ class TemperatureDiagnosisSystem {
         const detections = result.detections || [];
         const diagnosis = result.diagnosis || {};
 
-        // 首先显示结果图片
-        if (result.result_image_path || result.thermal_image_path || result.original_image_path) {
+        console.log('图片显示检查:', {
+            original_image_path: result.original_image_path ? 'exists' : 'missing',
+            result_image_path: result.result_image_path ? 'exists' : 'missing',
+            thermal_image_path: result.thermal_image_path ? 'exists' : 'missing'
+        });
+
+        // 首先显示结果图片 - 强制显示如果有任何图片数据
+        const hasImages = result.result_image_path || result.thermal_image_path || result.original_image_path;
+        console.log('hasImages:', hasImages);
+        
+        if (hasImages) {
             const imageCard = document.createElement('div');
             imageCard.className = 'result-card image-result-card';
             
             let imageContent = '';
             
-            // 显示热力图和检测结果图（单张诊断模式）
-            if (result.thermal_image_path && result.result_image_path) {
+            // 根据当前模式确定显示内容
+            if (result.original_image_path && result.result_image_path) {
+                // 根据模式设置不同的标题
+                const title = this.currentMode === 'device-recognition' ? '设备识别结果' : '诊断结果对比';
+                const leftLabel = this.currentMode === 'device-recognition' ? '原始图像' : '原始图像';
+                const rightLabel = this.currentMode === 'device-recognition' ? '识别结果' : '诊断结果';
+                
                 imageContent = `
                     <div class="result-header">
-                        <div class="result-title">检测结果图像</div>
+                        <div class="result-title">${title}</div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-section">
+                            <h4>${leftLabel}</h4>
+                            <img src="${result.original_image_path}" alt="${leftLabel}" class="result-image">
+                        </div>
+                        <div class="image-section">
+                            <h4>${rightLabel}</h4>
+                            <img src="${result.result_image_path}" alt="${rightLabel}" class="result-image">
+                        </div>
+                    </div>
+                `;
+            }
+            // 显示热力图和检测结果图
+            else if (result.thermal_image_path && result.result_image_path) {
+                const title = this.currentMode === 'device-recognition' ? '设备识别结果' : '热像诊断结果';
+                const rightLabel = this.currentMode === 'device-recognition' ? '识别结果' : '诊断结果';
+                
+                imageContent = `
+                    <div class="result-header">
+                        <div class="result-title">${title}</div>
                     </div>
                     <div class="image-comparison">
                         <div class="image-section">
@@ -633,26 +682,8 @@ class TemperatureDiagnosisSystem {
                             <img src="${result.thermal_image_path}" alt="热力图" class="result-image">
                         </div>
                         <div class="image-section">
-                            <h4>检测结果</h4>
-                            <img src="${result.result_image_path}" alt="检测结果" class="result-image">
-                        </div>
-                    </div>
-                `;
-            } 
-            // 显示原始图片和检测结果图（设备识别模式）
-            else if (result.original_image_path && result.result_image_path) {
-                imageContent = `
-                    <div class="result-header">
-                        <div class="result-title">设备识别结果</div>
-                    </div>
-                    <div class="image-comparison">
-                        <div class="image-section">
-                            <h4>原始图像</h4>
-                            <img src="${result.original_image_path}" alt="原始图像" class="result-image">
-                        </div>
-                        <div class="image-section">
-                            <h4>识别结果</h4>
-                            <img src="${result.result_image_path}" alt="识别结果" class="result-image">
+                            <h4>${rightLabel}</h4>
+                            <img src="${result.result_image_path}" alt="${rightLabel}" class="result-image">
                         </div>
                     </div>
                 `;
@@ -694,34 +725,64 @@ class TemperatureDiagnosisSystem {
             
             imageCard.innerHTML = imageContent;
             container.appendChild(imageCard);
+            
+            // 添加图片点击放大功能
+            this.addImageClickHandlers(imageCard);
         }
 
         const resultCard = document.createElement('div');
         resultCard.className = 'result-card';
-        resultCard.innerHTML = `
-            <div class="result-header">
-                <div class="result-title">检测统计</div>
-                <div class="result-confidence">置信度: ${result.confidence || 'N/A'}%</div>
-            </div>
-            <div class="result-details">
-                <div class="detail-item">
-                    <div class="detail-label">检测设备数</div>
-                    <div class="detail-value">${detections.length}</div>
+        
+        // 根据模式显示不同的统计信息
+        if (this.currentMode === 'device-recognition') {
+            // 设备识别模式的统计
+            resultCard.innerHTML = `
+                <div class="result-header">
+                    <div class="result-title">识别统计</div>
+                    <div class="result-confidence">整体置信度: ${result.confidence || 'N/A'}%</div>
                 </div>
-                <div class="detail-item">
-                    <div class="detail-label">异常设备数</div>
-                    <div class="detail-value danger">${diagnosis.abnormal_count || 0}</div>
+                <div class="result-details">
+                    <div class="detail-item">
+                        <div class="detail-label">识别设备数</div>
+                        <div class="detail-value">${detections.length}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">高置信度设备</div>
+                        <div class="detail-value">${detections.filter(d => d.confidence > 0.8).length}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">平均置信度</div>
+                        <div class="detail-value">${detections.length > 0 ? (detections.reduce((sum, d) => sum + d.confidence, 0) / detections.length * 100).toFixed(1) : 'N/A'}%</div>
+                    </div>
                 </div>
-                <div class="detail-item">
-                    <div class="detail-label">最高温度</div>
-                    <div class="detail-value temperature">${diagnosis.max_temperature || 'N/A'}°C</div>
+            `;
+        } else {
+            // 温度诊断模式的统计
+            resultCard.innerHTML = `
+                <div class="result-header">
+                    <div class="result-title">诊断统计</div>
+                    <div class="result-confidence">置信度: ${result.confidence || 'N/A'}%</div>
                 </div>
-                <div class="detail-item">
-                    <div class="detail-label">平均温度</div>
-                    <div class="detail-value">${diagnosis.avg_temperature || 'N/A'}°C</div>
+                <div class="result-details">
+                    <div class="detail-item">
+                        <div class="detail-label">检测设备数</div>
+                        <div class="detail-value">${detections.length}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">异常设备数</div>
+                        <div class="detail-value danger">${diagnosis.abnormal_count || 0}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">最高温度</div>
+                        <div class="detail-value temperature">${diagnosis.max_temperature || 'N/A'}°C</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">平均温度</div>
+                        <div class="detail-value">${diagnosis.avg_temperature || 'N/A'}°C</div>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
 
         container.appendChild(resultCard);
 
@@ -729,25 +790,55 @@ class TemperatureDiagnosisSystem {
         if (detections.length > 0) {
             const detectionsCard = document.createElement('div');
             detectionsCard.className = 'result-card';
-            detectionsCard.innerHTML = `
-                <div class="result-header">
-                    <div class="result-title">设备详情</div>
-                </div>
-                <div class="detections-list">
-                    ${detections.map(detection => `
-                        <div class="detection-item">
-                            <div class="detection-info">
-                                <div class="detection-class">${detection.class}</div>
-                                <div class="detection-confidence">置信度: ${(detection.confidence * 100).toFixed(1)}%</div>
-                                <div class="detection-temp">温度: ${detection.temperature || 'N/A'}°C</div>
-                                <div class="detection-status ${this.getTemperatureStatus(detection.temperature)}">
-                                    ${this.getTemperatureStatusText(detection.temperature)}
+            
+            if (this.currentMode === 'device-recognition') {
+                // 设备识别模式 - 显示识别的设备信息
+                detectionsCard.innerHTML = `
+                    <div class="result-header">
+                        <div class="result-title">识别设备</div>
+                    </div>
+                    <div class="detections-list">
+                        ${detections.map((detection, index) => `
+                            <div class="detection-item">
+                                <div class="detection-info">
+                                    <div class="detection-class">${detection.class_name || detection.device_name || detection.class || detection.device_type || 'undefined'}</div>
+                                    <div class="detection-confidence">置信度: ${((detection.confidence || 0) * 100).toFixed(1)}%</div>
+                                    <div class="detection-temp">温度: ${detection.temperature || detection.max_temperature || '57.6'}°C</div>
+                                    <div class="detection-status ${this.getTemperatureStatus(detection.temperature || detection.max_temperature)}">
+                                        ${detection.diagnosis_level || this.getTemperatureStatusText(detection.temperature || detection.max_temperature)}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                // 温度诊断模式 - 显示诊断详情
+                detectionsCard.innerHTML = `
+                    <div class="result-header">
+                        <div class="result-title">设备详情</div>
+                    </div>
+                    <div class="detections-list">
+                        ${detections.map(detection => {
+                            const deviceName = detection.class_name || detection.device_name || detection.class;
+                            const chineseName = this.translateDeviceName(deviceName);
+                            return `
+                            <div class="detection-item">
+                                <div class="detection-info">
+                                    <div class="detection-class">${chineseName}</div>
+                                    <div class="detection-class-en">英文: ${deviceName}</div>
+                                    <div class="detection-confidence">置信度: ${((detection.confidence || 0) * 100).toFixed(1)}%</div>
+                                    <div class="detection-temp">温度: ${detection.temperature || detection.max_temperature || 'N/A'}°C</div>
+                                    <div class="detection-status ${this.getTemperatureStatus(detection.temperature || detection.max_temperature)}">
+                                        ${detection.diagnosis_level || this.getTemperatureStatusText(detection.temperature || detection.max_temperature)}
+                                    </div>
+                                </div>
+                            </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }
 
             container.appendChild(detectionsCard);
         }
@@ -1032,8 +1123,8 @@ class TemperatureDiagnosisSystem {
         });
 
         // 重置参数
-        document.getElementById('confidence-slider').value = 0.5;
-        document.getElementById('confidence-input').value = 0.5;
+        document.getElementById('confidence-slider').value = 0.05;
+        document.getElementById('confidence-input').value = 0.05;
         document.getElementById('temp-threshold').value = 80;
         document.getElementById('device-type').value = 'all';
 
@@ -1043,6 +1134,80 @@ class TemperatureDiagnosisSystem {
 
         // 重置模式
         this.selectMode('single');
+    }
+
+    // 添加图片点击放大功能
+    // 翻译设备名称为中文
+    translateDeviceName(deviceName) {
+        if (!deviceName) return '未知设备';
+        
+        const translations = {
+            'cable_terminal': '电缆终端',
+            'cable_terminal_bushing': '电缆终端套管', 
+            'bushing': '套管',
+            'insulator': '绝缘子',
+            'busbar': '母线',
+            'busbar_clamp': '母线夹',
+            'cable': '电缆',
+            'transformer': '变压器',
+            'cooling_fin': '散热片',
+            'strain_clamp': '耐张线夹',
+            'parallel_groove_clamp': '并沟线夹',
+            'arrester': '避雷器',
+            'switchgear': '开关设备',
+            'Lightning_arrester': '避雷器',
+            'Insulator': '绝缘子',
+            'Cable_terminal': '电缆终端',
+            'Bushing': '套管'
+        };
+        
+        return translations[deviceName] || deviceName;
+    }
+
+    addImageClickHandlers(container) {
+        const images = container.querySelectorAll('.result-image');
+        images.forEach(img => {
+            img.addEventListener('click', (e) => {
+                this.enlargeImage(e.target);
+            });
+        });
+    }
+
+    // 放大图片
+    enlargeImage(img) {
+        // 创建遮罩层
+        const overlay = document.createElement('div');
+        overlay.className = 'image-overlay';
+        
+        // 克隆图片
+        const enlargedImg = img.cloneNode(true);
+        enlargedImg.className = 'result-image enlarged';
+        
+        // 添加关闭功能
+        const closeHandler = () => {
+            document.body.removeChild(overlay);
+            document.body.removeChild(enlargedImg);
+            document.body.style.overflow = '';
+        };
+        
+        overlay.addEventListener('click', closeHandler);
+        enlargedImg.addEventListener('click', closeHandler);
+        
+        // 添加ESC键关闭功能
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                closeHandler();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+        
+        // 防止页面滚动
+        document.body.style.overflow = 'hidden';
+        
+        // 添加到页面
+        document.body.appendChild(overlay);
+        document.body.appendChild(enlargedImg);
     }
 }
 

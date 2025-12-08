@@ -184,18 +184,46 @@ class TemperatureDiagnosisEngine:
         
         return {'type': 'unknown', 'expression': normalized_formula}
     
+    def _load_temperature_data_from_file(self, temp_file_path: str) -> Optional[np.ndarray]:
+        """从温度数据文件加载温度数据"""
+        try:
+            if os.path.exists(temp_file_path):
+                temp_data = np.loadtxt(temp_file_path)
+                return temp_data
+            else:
+                self.logger.warning(f"温度数据文件不存在: {temp_file_path}")
+                return None
+        except Exception as e:
+            self.logger.error(f"加载温度数据文件失败: {temp_file_path}, {e}")
+            return None
+    
+    def _calculate_temperature_stats(self, temp_data: np.ndarray) -> Dict[str, float]:
+        """计算温度数据的统计信息"""
+        if temp_data is None or temp_data.size == 0:
+            return {'min': 25.0, 'max': 25.0, 'mean': 25.0, 'median': 25.0}
+        
+        stats = {
+            'min': float(np.min(temp_data)),
+            'max': float(np.max(temp_data)),
+            'mean': float(np.mean(temp_data)),
+            'median': float(np.median(temp_data)),
+            'std': float(np.std(temp_data))
+        }
+        return stats
+    
     def set_environment_temperature(self, env_temp: float):
         """设置环境温度"""
         self.env_temp = env_temp
         self.logger.info(f"环境温度设置为: {env_temp}°C")
     
-    def diagnose_device(self, device_type: str, temperature_regions: Dict[str, float]) -> List[Dict]:
+    def diagnose_device(self, device_type: str, temperature_regions: Dict[str, float], temp_data_path: str = None) -> List[Dict]:
         """
         诊断单个设备的温度异常
         
         Args:
             device_type: 设备类型 (如 '避雷器')
             temperature_regions: 温度区域数据 {'R01': 85.5, 'R02': 45.2, ...}
+            temp_data_path: 温度数据文件路径，用于计算默认值
             
         Returns:
             诊断结果列表
@@ -209,7 +237,7 @@ class TemperatureDiagnosisEngine:
         
         for rule in rules:
             try:
-                result = self._evaluate_rule(rule, temperature_regions)
+                result = self._evaluate_rule(rule, temperature_regions, temp_data_path)
                 if result['triggered']:
                     diagnosis_results.append(result)
             except Exception as e:
@@ -221,12 +249,12 @@ class TemperatureDiagnosisEngine:
         
         return diagnosis_results
     
-    def _evaluate_rule(self, rule: Dict, temperatures: Dict[str, float]) -> Dict:
+    def _evaluate_rule(self, rule: Dict, temperatures: Dict[str, float], temp_data_path: str = None) -> Dict:
         """评估单条诊断规则"""
         formula = rule['parsed_formula']['expression']
         
-        # 替换温度变量
-        eval_formula = self._substitute_temperature_variables(formula, temperatures)
+        # 替换温度变量（传递温度数据文件路径用于计算默认值）
+        eval_formula = self._substitute_temperature_variables(formula, temperatures, temp_data_path)
         
         # 替换环境温度
         eval_formula = eval_formula.replace('EnvTemp', str(self.env_temp))
@@ -261,11 +289,20 @@ class TemperatureDiagnosisEngine:
                 'formula': rule['formula']
             }
     
-    def _substitute_temperature_variables(self, formula: str, temperatures: Dict[str, float]) -> str:
+    def _substitute_temperature_variables(self, formula: str, temperatures: Dict[str, float], temp_data_path: str = None) -> str:
         """替换公式中的温度变量"""
         import re
         
         eval_formula = formula
+        
+        # 如果提供了温度数据文件路径，计算统计值用作默认值
+        default_temp = 25.0  # 备用默认值
+        if temp_data_path and os.path.exists(temp_data_path):
+            temp_data = self._load_temperature_data_from_file(temp_data_path)
+            if temp_data is not None:
+                stats = self._calculate_temperature_stats(temp_data)
+                default_temp = stats['mean']  # 使用平均温度作为默认值
+                self.logger.info(f"基于温度数据文件 {temp_data_path} 计算默认温度: {default_temp:.2f}°C")
         
         # 处理多种可能的温度变量格式
         patterns = [
@@ -287,9 +324,9 @@ class TemperatureDiagnosisEngine:
                         break
                 
                 if temp_value is None:
-                    # 使用默认值
-                    temp_value = 25.0
-                    self.logger.warning(f"未找到温度数据 {region_key}, 使用默认值 {temp_value}")
+                    # 使用基于实际数据计算的默认值
+                    temp_value = default_temp
+                    self.logger.warning(f"未找到温度数据 {region_key}, 使用计算的默认值 {temp_value:.2f}")
                 
                 # 替换所有匹配的模式
                 old_patterns = [

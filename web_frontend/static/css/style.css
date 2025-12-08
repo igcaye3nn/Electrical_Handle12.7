@@ -857,7 +857,7 @@ body {
     transform: translateX(5px);
 }
 
-.result-image {
+.result-icon {
     width: 40px;
     height: 40px;
     background: #667eea;
@@ -2004,4 +2004,101 @@ body {
         min-width: 90vw;
         margin: 1rem;
     }
+}
+
+/* ===== 结果图片展示样式 ===== */
+.image-result-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e0e7ff;
+}
+
+.image-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 1rem;
+}
+
+.image-section {
+    text-align: center;
+}
+
+.image-section h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    background: #f8fafc;
+    border-radius: 6px;
+    border-left: 4px solid #667eea;
+}
+
+.single-image {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.result-image {
+    max-width: 100%;
+    width: auto;
+    height: auto;
+    min-height: 200px;
+    max-height: 400px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 2px solid #e5e7eb;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.result-image:hover {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    transform: scale(1.02);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .image-comparison {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .image-result-card {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .result-image {
+        min-height: 150px;
+        max-height: 300px;
+    }
+}
+
+/* 图片放大效果 */
+.result-image.enlarged {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+    max-width: 90vw;
+    max-height: 90vh;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    border: 3px solid white;
+}
+
+.image-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 9998;
+    cursor: pointer;
 }
