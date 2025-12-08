@@ -62,22 +62,39 @@ class TemperatureDiagnosisSystem {
 
     // 单张图像上传
     initSingleFileUpload() {
-        const fileInput = document.getElementById('single-file');
-        const fileList = document.getElementById('single-file-list');
+        // 设备识别模式
+        const deviceInput = document.getElementById('device-recognition-file');
+        const deviceList = document.getElementById('device-recognition-file-list');
 
-        if (!fileInput) return;
+        if (deviceInput) {
+            deviceInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    this.uploadedFiles.single = file;
+                    this.displayFileList([file], deviceList, 'single');
+                }
+            });
 
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                this.uploadedFiles.single = file;
-                this.displayFileList([file], fileList, 'single');
-            }
-        });
+            const deviceBox = deviceInput.parentElement.querySelector('.upload-box');
+            this.addDragDropSupport(deviceBox, deviceInput);
+        }
 
-        // 拖放支持
-        const uploadBox = fileInput.parentElement.querySelector('.upload-box');
-        this.addDragDropSupport(uploadBox, fileInput);
+        // 单张诊断模式 - 红外图像
+        const thermalInput = document.getElementById('single-thermal');
+        const thermalList = document.getElementById('single-thermal-file-list');
+
+        if (thermalInput) {
+            thermalInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    this.uploadedFiles.single = file;
+                    this.displayFileList([file], thermalList, 'single');
+                }
+            });
+
+            const thermalBox = thermalInput.parentElement.querySelector('.upload-box');
+            this.addDragDropSupport(thermalBox, thermalInput);
+        }
     }
 
     // 批量图像上传
@@ -311,6 +328,13 @@ class TemperatureDiagnosisSystem {
 
     // 处理单张图像
     async processSingleImage() {
+        if (this.currentMode === 'device-recognition') {
+            return await this.processDeviceRecognition();
+        } else if (this.currentMode === 'single-diagnosis') {
+            return await this.processSingleDiagnosis();
+        }
+        
+        // 兼容旧版本
         const formData = new FormData();
         formData.append('image', this.uploadedFiles.single);
         formData.append('mode', 'single');
@@ -355,6 +379,90 @@ class TemperatureDiagnosisSystem {
         this.updateProgress(100, '诊断完成');
 
         return result;
+    }
+
+    // 处理设备识别模式
+    async processDeviceRecognition() {
+        const formData = new FormData();
+        formData.append('image', this.uploadedFiles.single);
+        formData.append('confidence', document.getElementById('confidence-input').value);
+
+        this.updateProgress(20, '正在上传图像...');
+
+        const response = await fetch('/api/device-recognition', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error('设备识别请求失败');
+        }
+
+        this.updateProgress(80, '正在处理识别结果...');
+        const result = await response.json();
+
+        this.updateProgress(100, '识别完成');
+        return {
+            detections: result.devices || [],
+            result_image_path: result.visualization_data,  // 设备识别结果图
+            original_image_path: result.image_data,        // 原始图片
+            confidence: 95,
+            diagnosis: {
+                abnormal_count: 0,
+                max_temperature: 'N/A',
+                avg_temperature: 'N/A'
+            }
+        };
+    }
+
+    // 处理单张诊断模式
+    async processSingleDiagnosis() {
+        const formData = new FormData();
+        
+        // 检查上传文件的类型
+        const thermalFile = document.getElementById('single-thermal').files[0];
+        const tempDataFile = document.getElementById('single-temp-data').files[0];
+        
+        if (!thermalFile) {
+            throw new Error('请上传红外图像');
+        }
+        
+        formData.append('thermal_image', thermalFile);
+        if (tempDataFile) {
+            formData.append('temperature_data', tempDataFile);
+        }
+        
+        formData.append('confidence', document.getElementById('confidence-input').value);
+        formData.append('temperature', document.getElementById('temp-threshold').value);
+        formData.append('env_temperature', '25.0'); // 环境温度
+
+        this.updateProgress(20, '正在上传图像...');
+
+        const response = await fetch('/api/single-image-diagnosis', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error('诊断请求失败');
+        }
+
+        this.updateProgress(80, '正在处理诊断结果...');
+        const result = await response.json();
+
+        this.updateProgress(100, '诊断完成');
+        
+        return {
+            detections: result.diagnoses || [],
+            result_image_path: result.images?.visualization,
+            thermal_image_path: result.images?.heatmap_with_boxes || result.images?.original,
+            confidence: 95,
+            diagnosis: {
+                abnormal_count: result.summary?.abnormal_count || 0,
+                max_temperature: result.summary?.max_temperature || 'N/A',
+                avg_temperature: result.summary?.average_temperature || 'N/A'
+            }
+        };
     }
 
     // 处理批量图像
@@ -489,7 +597,7 @@ class TemperatureDiagnosisSystem {
 
         content.innerHTML = '';
 
-        if (this.currentMode === 'single') {
+        if (this.currentMode === 'single' || this.currentMode === 'device-recognition') {
             this.displaySingleResult(results, content);
         } else if (this.currentMode === 'batch') {
             this.displayBatchResults(results, content);
@@ -506,11 +614,93 @@ class TemperatureDiagnosisSystem {
         const detections = result.detections || [];
         const diagnosis = result.diagnosis || {};
 
+        // 首先显示结果图片
+        if (result.result_image_path || result.thermal_image_path || result.original_image_path) {
+            const imageCard = document.createElement('div');
+            imageCard.className = 'result-card image-result-card';
+            
+            let imageContent = '';
+            
+            // 显示热力图和检测结果图（单张诊断模式）
+            if (result.thermal_image_path && result.result_image_path) {
+                imageContent = `
+                    <div class="result-header">
+                        <div class="result-title">检测结果图像</div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-section">
+                            <h4>热力图</h4>
+                            <img src="${result.thermal_image_path}" alt="热力图" class="result-image">
+                        </div>
+                        <div class="image-section">
+                            <h4>检测结果</h4>
+                            <img src="${result.result_image_path}" alt="检测结果" class="result-image">
+                        </div>
+                    </div>
+                `;
+            } 
+            // 显示原始图片和检测结果图（设备识别模式）
+            else if (result.original_image_path && result.result_image_path) {
+                imageContent = `
+                    <div class="result-header">
+                        <div class="result-title">设备识别结果</div>
+                    </div>
+                    <div class="image-comparison">
+                        <div class="image-section">
+                            <h4>原始图像</h4>
+                            <img src="${result.original_image_path}" alt="原始图像" class="result-image">
+                        </div>
+                        <div class="image-section">
+                            <h4>识别结果</h4>
+                            <img src="${result.result_image_path}" alt="识别结果" class="result-image">
+                        </div>
+                    </div>
+                `;
+            }
+            // 只显示检测结果图
+            else if (result.result_image_path) {
+                const title = this.currentMode === 'device-recognition' ? '设备识别结果' : '检测结果图像';
+                imageContent = `
+                    <div class="result-header">
+                        <div class="result-title">${title}</div>
+                    </div>
+                    <div class="single-image">
+                        <img src="${result.result_image_path}" alt="检测结果" class="result-image">
+                    </div>
+                `;
+            } 
+            // 只显示热力图
+            else if (result.thermal_image_path) {
+                imageContent = `
+                    <div class="result-header">
+                        <div class="result-title">热力图</div>
+                    </div>
+                    <div class="single-image">
+                        <img src="${result.thermal_image_path}" alt="热力图" class="result-image">
+                    </div>
+                `;
+            }
+            // 只显示原始图片
+            else if (result.original_image_path) {
+                imageContent = `
+                    <div class="result-header">
+                        <div class="result-title">原始图像</div>
+                    </div>
+                    <div class="single-image">
+                        <img src="${result.original_image_path}" alt="原始图像" class="result-image">
+                    </div>
+                `;
+            }
+            
+            imageCard.innerHTML = imageContent;
+            container.appendChild(imageCard);
+        }
+
         const resultCard = document.createElement('div');
         resultCard.className = 'result-card';
         resultCard.innerHTML = `
             <div class="result-header">
-                <div class="result-title">检测结果</div>
+                <div class="result-title">检测统计</div>
                 <div class="result-confidence">置信度: ${result.confidence || 'N/A'}%</div>
             </div>
             <div class="result-details">

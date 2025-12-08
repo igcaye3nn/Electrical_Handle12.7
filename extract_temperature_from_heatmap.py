@@ -275,9 +275,9 @@ def main():
     parser.add_argument('--output_dir', type=str,
                        default='test/processed_data/extracted_temperature',
                        help='输出目录路径')
-    parser.add_argument('--temp_min', type=float, default=None,
+    parser.add_argument('--temp_min', type=float, default=20.0,
                        help='原始温度最小值（可选）')
-    parser.add_argument('--temp_max', type=float, default=None,
+    parser.add_argument('--temp_max', type=float, default=50.0,
                        help='原始温度最大值（可选）')
     parser.add_argument('--single_file', type=str, default=None,
                        help='单个文件处理（可选）')

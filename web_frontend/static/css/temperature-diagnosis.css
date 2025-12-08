@@ -754,3 +754,58 @@
     visibility: visible;
     opacity: 1;
 }
+
+/* 图片结果显示样式 */
+.image-result-card {
+    margin-bottom: 1.5rem;
+}
+
+.image-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.image-section {
+    text-align: center;
+}
+
+.image-section h4 {
+    margin-bottom: 0.8rem;
+    color: #495057;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.single-image {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.result-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: transform 0.3s ease;
+    cursor: pointer;
+}
+
+.result-image:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .image-comparison {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .result-image {
+        max-height: 400px;
+        object-fit: contain;
+    }
+}

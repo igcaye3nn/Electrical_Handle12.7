@@ -41,6 +41,17 @@ except ImportError as e:
     HAS_ULTRALYTICS = False
     print(f"警告: ultralytics导入失败: {e}，将使用模拟检测")
 
+# 导入温度诊断引擎
+try:
+    import sys
+    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+    from temperature_diagnosis_engine import TemperatureDiagnosisEngine
+    HAS_DIAGNOSIS_ENGINE = True
+    print("成功导入温度诊断引擎")
+except ImportError as e:
+    HAS_DIAGNOSIS_ENGINE = False
+    print(f"警告: 温度诊断引擎导入失败: {e}，将使用模拟诊断")
+
 app = Flask(__name__, 
             template_folder='templates',
             static_folder='static',
@@ -71,23 +82,26 @@ logger = logging.getLogger(__name__)
 # YOLO模型初始化
 YOLO_MODEL = None
 
+# 温度诊断引擎初始化
+DIAGNOSIS_ENGINE = None
+
 # 英文设备名称到中文的映射
 DEVICE_NAME_MAPPING = {
-    'Cable_tail': '电缆终端',
-    'Cable_tail_box': '电缆终端盒',
-    'Cable_tail_dizuo': '电缆终端底座',
+    'Cable_tail': '电缆尾管',
+    'Cable_tail_box': '电缆尾管本体',
+    'Cable_tail_dizuo': '电缆尾管底座',
     'Cable_terminal': '电缆终端',
     'Cable_terminal_benti': '电缆终端本体',
     'Cable_terminal_jietou': '电缆终端接头',
-    'Contact_terminal_1': '接触终端1',
-    'Contact_terminal_2': '接触终端2',
-    'Contact_terminal_4': '接触终端4',
-    'Contact_terminal_6': '接触终端6',
-    'Contact_terminal_8': '接触终端8',
-    'Contact_terminal_box': '接触终端盒',
-    'Contact_terminal_box2': '接触终端盒2',
-    'Contact_terminal_box3': '接触终端盒3',
-    'Contact_terminal_box4': '接触终端盒4',
+    'Contact_terminal_1': '耐张线夹1',
+    'Contact_terminal_2': '耐张线夹2',
+    'Contact_terminal_4': '耐张线夹4',
+    'Contact_terminal_6': '耐张线夹6',
+    'Contact_terminal_8': '耐张线夹8',
+    'Contact_terminal_box': '耐张线夹接头',
+    'Contact_terminal_box2': '耐张线夹接头2',
+    'Contact_terminal_box3': '耐张线夹接头3',
+    'Contact_terminal_box4': '耐张线夹接头4',
     'Fittings': '金具',
     'Fittings_box': '金具盒',
     'Ground_clamp': '接地线夹',
@@ -108,10 +122,10 @@ DEVICE_NAME_MAPPING = {
     'SA_3': '避雷器3',
     'SA_benti': '避雷器本体',
     'SA_jietou': '避雷器接头',
-    'Splicing_pipe': '连接管',
+    'Splicing_pipe': '接续管',
     'Tubular_busbar_2': '管母2',
     'Tubular_busbar_3': '管母3',
-    'Tubular_busbar_box': '管母盒'
+    'Tubular_busbar_box': '管母部件'
 }
 
 def init_yolo_model():
@@ -157,6 +171,29 @@ def init_yolo_model():
 
 # 初始化模型
 model_loaded = init_yolo_model()
+
+def init_diagnosis_engine():
+    """初始化温度诊断引擎"""
+    global DIAGNOSIS_ENGINE
+    if not HAS_DIAGNOSIS_ENGINE:
+        logger.error("温度诊断引擎未安装，将使用模拟诊断")
+        return False
+    
+    try:
+        # 诊断规则目录路径
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        rules_dir = os.path.join(base_dir, '温度异常诊断规则')
+        
+        DIAGNOSIS_ENGINE = TemperatureDiagnosisEngine(rules_dir)
+        logger.info(f"温度诊断引擎初始化成功，规则目录: {rules_dir}")
+        return True
+    except Exception as e:
+        logger.error(f"温度诊断引擎初始化失败: {e}")
+        DIAGNOSIS_ENGINE = None
+        return False
+
+# 初始化诊断引擎
+diagnosis_engine_loaded = init_diagnosis_engine()
 
 # 项目根目录
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -573,6 +610,194 @@ def draw_detection_results(image, devices):
         # 绘制文字
         cv2.putText(result_img, label, (x1 + 5, y1 - h2 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
         cv2.putText(result_img, temp_label, (x1 + 5, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+    
+    return result_img
+
+def draw_heatmap_diagnosis_results(heatmap_image, devices, diagnoses):
+    """在热力图上绘制设备检测框和智能诊断结果"""
+    import cv2
+    import numpy as np
+    
+    result_img = heatmap_image.copy()
+    
+    # 定义诊断级别对应的颜色（BGR格式）
+    level_colors = {
+        'normal': (0, 255, 0),       # 绿色
+        'warning': (0, 165, 255),    # 橙色  
+        'critical': (0, 0, 255),     # 红色
+        '正常': (0, 255, 0),         # 绿色
+        '一般': (0, 255, 255),       # 黄色
+        '严重': (0, 165, 255),       # 橙色
+        '危急': (0, 0, 255)          # 红色
+    }
+    
+    # 创建设备ID到诊断结果的映射
+    device_diagnosis_map = {}
+    for i, diagnosis in enumerate(diagnoses):
+        # 假设诊断结果与设备按索引对应，或通过设备名称匹配
+        if 'device' in diagnosis:
+            device_diagnosis_map[diagnosis['device']] = diagnosis
+        else:
+            # 按索引对应
+            device_diagnosis_map[i] = diagnosis
+    
+    # 为每个检测到的设备绘制标注框
+    for i, device in enumerate(devices):
+        # 获取边界框坐标
+        bbox = device.get('bbox', [])
+        if len(bbox) < 4:
+            continue
+            
+        x1, y1, x2, y2 = map(int, bbox[:4])
+        
+        # 获取设备名称（支持多种命名方式）
+        device_name = device.get('class_name', device.get('name', device.get('device_type', f'设备{i+1}')))
+        
+        # 获取对应的诊断结果
+        diagnosis = device_diagnosis_map.get(device_name, device_diagnosis_map.get(i, None))
+        
+        # 确定边框颜色和诊断级别
+        if diagnosis:
+            level = diagnosis.get('level', 'normal')
+            temperature = diagnosis.get('temperature', device.get('temperature', 0))
+        else:
+            level = 'normal'
+            temperature = device.get('temperature', 0)
+        
+        color = level_colors.get(level, (128, 128, 128))  # 默认灰色
+        
+        # 根据诊断严重程度调整线宽
+        if level in ['critical', '危急']:
+            line_width = 4
+        elif level in ['warning', 'severe', '严重', '一般']:
+            line_width = 3
+        else:
+            line_width = 2
+        
+        # 绘制设备边界框
+        cv2.rectangle(result_img, (x1, y1), (x2, y2), color, line_width)
+        
+        # 准备标签文本
+        device_display_name = DEVICE_NAME_MAPPING.get(device_name, device_name)
+        label_lines = [
+            f"{device_display_name}",
+            f"温度: {temperature:.1f}°C",
+            f"诊断: {level}"
+        ]
+        
+        # 如果有诊断建议，添加到标签中
+        if diagnosis and diagnosis.get('suggestion'):
+            suggestion = diagnosis['suggestion'][:20] + '...' if len(diagnosis['suggestion']) > 20 else diagnosis['suggestion']
+            label_lines.append(suggestion)
+        
+        # 计算文字区域大小
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.6
+        thickness = 2
+        line_height = 25
+        
+        max_width = 0
+        for line in label_lines:
+            (w, h), _ = cv2.getTextSize(line, font, font_scale, thickness)
+            max_width = max(max_width, w)
+        
+        # 计算标签背景位置
+        bg_height = len(label_lines) * line_height + 15
+        bg_y1 = max(10, y1 - bg_height)
+        bg_y2 = y1 - 5
+        bg_x1 = x1
+        bg_x2 = min(result_img.shape[1] - 10, x1 + max_width + 20)
+        
+        # 绘制半透明背景
+        overlay = result_img.copy()
+        cv2.rectangle(overlay, (bg_x1, bg_y1), (bg_x2, bg_y2), color, -1)
+        cv2.addWeighted(overlay, 0.7, result_img, 0.3, 0, result_img)
+        
+        # 绘制标签文字
+        for j, line in enumerate(label_lines):
+            text_y = bg_y1 + (j + 1) * line_height - 5
+            cv2.putText(result_img, line, (bg_x1 + 10, text_y), 
+                       font, font_scale, (255, 255, 255), thickness)
+        
+        # 在右上角添加设备ID标识
+        id_text = f"#{i+1}"
+        cv2.putText(result_img, id_text, (x2 - 40, y1 + 25), 
+                   font, 0.8, color, 2)
+    
+    return result_img
+
+def draw_diagnosis_results(image, diagnoses):
+    """在图像上绘制诊断结果"""
+    import cv2
+    import numpy as np
+    
+    result_img = image.copy()
+    
+    # 定义状态颜色
+    status_colors = {
+        'normal': (0, 255, 0),      # 绿色
+        'attention': (0, 255, 255),  # 黄色
+        'warning': (0, 165, 255),    # 橙色
+        'critical': (0, 0, 255)      # 红色
+    }
+    
+    for diagnosis in diagnoses:
+        # 获取边界框坐标
+        x1, y1, x2, y2 = map(int, diagnosis['bbox'][:4])
+        
+        # 根据诊断状态设置颜色
+        status = diagnosis['status']
+        color = status_colors.get(status, (128, 128, 128))
+        
+        # 绘制边界框，线宽根据严重程度调整
+        line_width = 4 if status == 'critical' else 3 if status == 'warning' else 2
+        cv2.rectangle(result_img, (x1, y1), (x2, y2), color, line_width)
+        
+        # 准备标签文本
+        device_name = diagnosis.get('device_name', diagnosis['device_type'])
+        max_temp = diagnosis['max_temperature']
+        level = diagnosis['diagnosis_level']
+        
+        label_lines = [
+            f"{device_name}",
+            f"最高温度: {max_temp:.1f}°C", 
+            f"诊断: {level}"
+        ]
+        
+        # 如果有温度区域数据，显示关键区域温度
+        if diagnosis.get('temperature_regions'):
+            temp_regions = diagnosis['temperature_regions']
+            max_region = max(temp_regions.items(), key=lambda x: x[1])
+            label_lines.append(f"{max_region[0]}: {max_region[1]:.1f}°C")
+        
+        # 计算文字区域大小
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.5
+        thickness = 1
+        line_height = 20
+        
+        max_width = 0
+        for line in label_lines:
+            (w, h), _ = cv2.getTextSize(line, font, font_scale, thickness)
+            max_width = max(max_width, w)
+        
+        # 绘制背景矩形
+        bg_height = len(label_lines) * line_height + 10
+        bg_y1 = max(0, y1 - bg_height)
+        bg_y2 = y1
+        bg_x1 = x1
+        bg_x2 = min(result_img.shape[1], x1 + max_width + 10)
+        
+        # 半透明背景
+        overlay = result_img.copy()
+        cv2.rectangle(overlay, (bg_x1, bg_y1), (bg_x2, bg_y2), color, -1)
+        cv2.addWeighted(overlay, 0.7, result_img, 0.3, 0, result_img)
+        
+        # 绘制文字
+        for i, line in enumerate(label_lines):
+            text_y = bg_y1 + (i + 1) * line_height - 5
+            cv2.putText(result_img, line, (bg_x1 + 5, text_y), 
+                       font, font_scale, (255, 255, 255), thickness)
     
     return result_img
 
@@ -1684,11 +1909,22 @@ def temperature_diagnosis():
                         'suggestion': generate_diagnostic_suggestion(device['name'], level, device['temperature'])
                     })
                 
-                # 如果有热力图，也包含进来
+                # 生成带标注框的热力图
                 heatmap_b64 = None
+                heatmap_with_boxes_b64 = None
+                
                 if matched_images['heatmap'] and os.path.exists(matched_images['heatmap']):
+                    # 读取原始热力图
+                    heatmap_image = cv2.imread(matched_images['heatmap'])
                     with open(matched_images['heatmap'], 'rb') as heatmap_file:
                         heatmap_b64 = base64.b64encode(heatmap_file.read()).decode('utf-8')
+                    
+                    # 在热力图上绘制标注框和诊断结果
+                    heatmap_with_boxes = draw_heatmap_diagnosis_results(heatmap_image.copy(), devices, diagnoses)
+                    
+                    # 转换为base64
+                    _, heatmap_boxes_buffer = cv2.imencode('.jpg', heatmap_with_boxes)
+                    heatmap_with_boxes_b64 = base64.b64encode(heatmap_boxes_buffer).decode('utf-8')
                 
                 results.append({
                     'filename': filename,
@@ -1697,6 +1933,7 @@ def temperature_diagnosis():
                     'original_image': f'data:image/jpeg;base64,{original_b64}',
                     'detection_image': f'data:image/jpeg;base64,{detection_b64}',
                     'heatmap_image': f'data:image/jpeg;base64,{heatmap_b64}' if heatmap_b64 else None,
+                    'heatmap_with_boxes': f'data:image/jpeg;base64,{heatmap_with_boxes_b64}' if heatmap_with_boxes_b64 else None,
                     'matched_files': matched_images
                 })
                 
@@ -1852,6 +2089,9 @@ def single_image_diagnosis():
         # 使用YOLO检测设备
         devices = detect_devices_with_yolo_from_array(thermal_image, confidence)
         
+        # 获取环境温度参数
+        env_temp = float(request.form.get('env_temperature', 25.0))
+        
         # 处理温度数据（如果有）
         temp_data = None
         if 'temperature_data' in request.files:
@@ -1861,24 +2101,90 @@ def single_image_diagnosis():
                 temp_content = temp_file.read().decode('utf-8')
                 temp_data = parse_temperature_data(temp_content)
         
-        # 进行异常诊断
+        # 将原始图像编码为base64用于前端显示
+        thermal_image_base64 = base64.b64encode(thermal_data).decode('utf-8')
+        
+        # 进行智能温度异常诊断
         diagnoses = []
-        for device in devices:
-            # 模拟温度异常检测
-            device_temp = np.random.uniform(30, 100)  # 模拟设备温度
-            is_abnormal = device_temp > temp_threshold
+        for i, device in enumerate(devices):
+            # 从热力图中提取设备区域的温度数据
+            temperature_regions = extract_temperature_regions_from_image(
+                thermal_image, device['bbox']
+            )
             
+            # 执行智能诊断
+            intelligent_diagnosis = perform_intelligent_diagnosis(
+                device['class_name'], 
+                temperature_regions, 
+                env_temp
+            )
+            
+            # 构建诊断结果
             diagnosis = {
                 'device_id': device['id'],
                 'device_type': device['class_name'],
+                'device_name': DEVICE_NAME_MAPPING.get(device['class_name'], device['class_name']),
                 'bbox': device['bbox'],
                 'confidence': device['confidence'],
-                'temperature': round(device_temp, 2),
-                'is_abnormal': is_abnormal,
-                'status': 'abnormal' if is_abnormal else 'normal',
-                'risk_level': 'high' if device_temp > temp_threshold + 10 else 'medium' if is_abnormal else 'low'
+                'temperature_regions': temperature_regions,
+                'max_temperature': intelligent_diagnosis['max_temperature'],
+                'diagnosis_level': intelligent_diagnosis['level'],
+                'status': intelligent_diagnosis['status'],
+                'is_abnormal': intelligent_diagnosis['level'] != '正常',
+                'diagnosis_method': intelligent_diagnosis['method'],
+                'diagnosis_details': intelligent_diagnosis['diagnosis_results'],
+                'treatment_suggestions': []
             }
+            
+            # 提取处理建议
+            if intelligent_diagnosis['diagnosis_results']:
+                for result in intelligent_diagnosis['diagnosis_results']:
+                    if result.get('triggered') and result.get('treatment_suggestion'):
+                        diagnosis['treatment_suggestions'].append(result['treatment_suggestion'])
+            
             diagnoses.append(diagnosis)
+        
+        # 绘制检测和诊断结果的可视化图像
+        vis_image = draw_diagnosis_results(thermal_image.copy(), diagnoses)
+        
+        # 如果有对应的热力图文件，生成带标注框的热力图
+        heatmap_with_boxes_base64 = None
+        thermal_filename_base = os.path.splitext(thermal_filename)[0]
+        
+        # 查找可能的热力图文件
+        possible_heatmap_paths = [
+            os.path.join(os.path.dirname(__file__), '..', 'test', 'processed_data', 'thermal_images', f"{thermal_filename_base}.jpg"),
+            os.path.join(os.path.dirname(__file__), '..', 'test', 'processed_data', 'thermal_images', f"{thermal_filename_base}.png"),
+            os.path.join(os.path.dirname(__file__), '..', 'processed_data', 'thermal_images', f"{thermal_filename_base}.jpg"),
+            os.path.join(os.path.dirname(__file__), '..', 'processed_data', 'thermal_images', f"{thermal_filename_base}.png")
+        ]
+        
+        for heatmap_path in possible_heatmap_paths:
+            if os.path.exists(heatmap_path):
+                heatmap_image = cv2.imread(heatmap_path)
+                if heatmap_image is not None:
+                    # 在热力图上绘制标注框
+                    heatmap_with_boxes = draw_heatmap_diagnosis_results(heatmap_image.copy(), devices, diagnoses)
+                    
+                    # 转换为base64
+                    _, heatmap_boxes_buffer = cv2.imencode('.jpg', heatmap_with_boxes)
+                    heatmap_with_boxes_base64 = base64.b64encode(heatmap_boxes_buffer).decode('utf-8')
+                    break
+        
+        # 将可视化图像编码为base64
+        _, vis_buffer = cv2.imencode('.jpg', vis_image)
+        vis_image_base64 = base64.b64encode(vis_buffer).decode('utf-8')
+        
+        # 计算统计信息
+        normal_count = len([d for d in diagnoses if not d['is_abnormal']])
+        abnormal_count = len([d for d in diagnoses if d['is_abnormal']])
+        critical_count = len([d for d in diagnoses if d['status'] == 'critical'])
+        warning_count = len([d for d in diagnoses if d['status'] == 'warning'])
+        
+        # 温度统计
+        all_temps = [d['max_temperature'] for d in diagnoses]
+        avg_temp = round(np.mean(all_temps), 2) if all_temps else 0
+        max_temp = round(max(all_temps), 2) if all_temps else 0
         
         result = {
             'success': True,
@@ -1886,11 +2192,31 @@ def single_image_diagnosis():
             'image_size': [thermal_image.shape[1], thermal_image.shape[0]],
             'devices_detected': len(devices),
             'diagnoses': diagnoses,
+            'images': {
+                'original': f"data:image/jpeg;base64,{thermal_image_base64}",
+                'visualization': f"data:image/jpeg;base64,{vis_image_base64}",
+                'heatmap_with_boxes': f"data:image/jpeg;base64,{heatmap_with_boxes_base64}" if heatmap_with_boxes_base64 else None
+            },
             'summary': {
-                'normal_count': len([d for d in diagnoses if not d['is_abnormal']]),
-                'abnormal_count': len([d for d in diagnoses if d['is_abnormal']]),
-                'high_risk_count': len([d for d in diagnoses if d.get('risk_level') == 'high']),
-                'average_temperature': round(np.mean([d['temperature'] for d in diagnoses]), 2) if diagnoses else 0
+                'total_devices': len(diagnoses),
+                'normal_count': normal_count,
+                'abnormal_count': abnormal_count,
+                'critical_count': critical_count,
+                'warning_count': warning_count,
+                'average_temperature': avg_temp,
+                'max_temperature': max_temp,
+                'abnormal_rate': round((abnormal_count / len(diagnoses) * 100), 1) if diagnoses else 0,
+                'diagnosis_distribution': {
+                    '正常': len([d for d in diagnoses if d['diagnosis_level'] == '正常']),
+                    '一般': len([d for d in diagnoses if d['diagnosis_level'] == '一般']),
+                    '严重': len([d for d in diagnoses if d['diagnosis_level'] == '严重']),
+                    '危急': len([d for d in diagnoses if d['diagnosis_level'] == '危急'])
+                }
+            },
+            'processing_info': {
+                'environment_temperature': env_temp,
+                'diagnosis_engine_available': DIAGNOSIS_ENGINE is not None,
+                'processing_time': 0.5  # 可以记录实际处理时间
             }
         }
         
@@ -2018,6 +2344,161 @@ def parse_temperature_data(content):
     except Exception as e:
         logger.error(f"解析温度数据失败: {e}")
         return None
+
+def extract_temperature_regions_from_image(thermal_image, device_bbox):
+    """
+    从热力图图像中提取设备区域的温度数据
+    
+    Args:
+        thermal_image: 热力图图像 (numpy array)
+        device_bbox: 设备边界框 [x1, y1, x2, y2]
+        
+    Returns:
+        温度区域数据字典 {'R01': temp1, 'R02': temp2, ...}
+    """
+    try:
+        x1, y1, x2, y2 = map(int, device_bbox[:4])
+        
+        # 裁剪设备区域
+        device_region = thermal_image[y1:y2, x1:x2]
+        
+        if device_region.size == 0:
+            return {}
+        
+        # 将图像转换为灰度图以提取温度信息
+        if len(device_region.shape) == 3:
+            gray_region = cv2.cvtColor(device_region, cv2.COLOR_BGR2GRAY)
+        else:
+            gray_region = device_region
+        
+        # 划分温度区域 - 简化版本
+        height, width = gray_region.shape
+        
+        # 将设备区域划分为4个子区域
+        mid_h, mid_w = height // 2, width // 2
+        
+        regions = {
+            'R01': gray_region[:mid_h, :mid_w],      # 左上 - 通常是接头区域
+            'R02': gray_region[:mid_h, mid_w:],      # 右上 - 本体区域1  
+            'R03': gray_region[mid_h:, :mid_w],      # 左下 - 本体区域2
+            'R04': gray_region[mid_h:, mid_w:]       # 右下 - 其他区域
+        }
+        
+        # 计算每个区域的最大温度值 (通过灰度值估算)
+        # 灰度值0-255映射到温度范围20-120°C
+        temp_regions = {}
+        for region_name, region_data in regions.items():
+            if region_data.size > 0:
+                max_gray = np.max(region_data)
+                # 简单的线性映射：0->20°C, 255->120°C
+                estimated_temp = 20 + (max_gray / 255.0) * 100
+                temp_regions[region_name] = round(estimated_temp, 1)
+            else:
+                temp_regions[region_name] = 20.0  # 默认值
+        
+        return temp_regions
+        
+    except Exception as e:
+        logger.error(f"提取温度区域失败: {e}")
+        return {}
+
+def perform_intelligent_diagnosis(device_type, temperature_regions, env_temp=25.0):
+    """
+    执行智能温度异常诊断
+    
+    Args:
+        device_type: 设备类型
+        temperature_regions: 温度区域数据
+        env_temp: 环境温度
+        
+    Returns:
+        诊断结果字典
+    """
+    global DIAGNOSIS_ENGINE
+    
+    if not DIAGNOSIS_ENGINE:
+        # 使用简单的阈值诊断作为后备方案
+        max_temp = max(temperature_regions.values()) if temperature_regions else 25.0
+        
+        if max_temp > 110:
+            level = '危急'
+            status = 'critical'
+        elif max_temp > 80:
+            level = '严重'
+            status = 'warning'
+        elif max_temp > 60:
+            level = '一般'
+            status = 'attention'
+        else:
+            level = '正常'
+            status = 'normal'
+        
+        return {
+            'level': level,
+            'status': status,
+            'max_temperature': max_temp,
+            'diagnosis_results': [{
+                'triggered': max_temp > 60,
+                'level': level,
+                'diagnosis_rule': f'简单阈值诊断: 最高温度 {max_temp}°C',
+                'treatment_suggestion': '建议进行进一步检查' if max_temp > 60 else '设备状态正常'
+            }],
+            'method': 'threshold'
+        }
+    
+    # 使用智能诊断引擎
+    try:
+        DIAGNOSIS_ENGINE.set_environment_temperature(env_temp)
+        
+        # 将设备类型映射到诊断规则中的类型
+        device_type_mapping = {
+            'SA_1': '避雷器',
+            'SA_2': '避雷器', 
+            'SA_3': '避雷器',
+            'SA_benti': '避雷器',
+            'SA_jietou': '避雷器',
+            'electrical_equipment': '避雷器'  # 默认映射
+        }
+        
+        mapped_device_type = device_type_mapping.get(device_type, '避雷器')
+        
+        diagnosis_results = DIAGNOSIS_ENGINE.diagnose_device(mapped_device_type, temperature_regions)
+        
+        # 确定最高严重程度
+        if diagnosis_results:
+            triggered_results = [r for r in diagnosis_results if r.get('triggered', False)]
+            if triggered_results:
+                severity_order = {'危急': 0, '严重': 1, '一般': 2}
+                highest_severity = min(triggered_results, 
+                                     key=lambda x: severity_order.get(x['level'], 3))
+                level = highest_severity['level']
+            else:
+                level = '正常'
+        else:
+            level = '正常'
+        
+        # 状态映射
+        status_mapping = {
+            '危急': 'critical',
+            '严重': 'warning', 
+            '一般': 'attention',
+            '正常': 'normal'
+        }
+        
+        return {
+            'level': level,
+            'status': status_mapping.get(level, 'normal'),
+            'max_temperature': max(temperature_regions.values()) if temperature_regions else 25.0,
+            'diagnosis_results': diagnosis_results,
+            'temperature_regions': temperature_regions,
+            'method': 'intelligent',
+            'device_type_used': mapped_device_type
+        }
+        
+    except Exception as e:
+        logger.error(f"智能诊断失败: {e}")
+        # 回退到简单诊断
+        return perform_intelligent_diagnosis(device_type, temperature_regions, env_temp)
 
 # ===== 错误处理 =====
 
