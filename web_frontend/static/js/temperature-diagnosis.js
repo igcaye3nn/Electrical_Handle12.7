@@ -448,7 +448,7 @@ class TemperatureDiagnosisSystem {
             heatmap: result.images?.heatmap_with_boxes ? 'exists' : 'missing'
         });
         
-        const processedResult = {
+        return {
             detections: result.diagnoses || [],
             result_image_path: result.images?.visualization,
             thermal_image_path: result.images?.heatmap_with_boxes,
@@ -460,15 +460,6 @@ class TemperatureDiagnosisSystem {
                 avg_temperature: result.summary?.average_temperature || 'N/A'
             }
         };
-        
-        console.log('处理后的结果对象:', {
-            original_image_path: processedResult.original_image_path ? 'SET' : 'MISSING',
-            result_image_path: processedResult.result_image_path ? 'SET' : 'MISSING',
-            thermal_image_path: processedResult.thermal_image_path ? 'SET' : 'MISSING',
-            detections_count: processedResult.detections.length
-        });
-        
-        return processedResult;
     }
 
     // 处理批量图像
@@ -596,22 +587,16 @@ class TemperatureDiagnosisSystem {
 
     // 显示结果
     displayResults(results) {
-        console.log('=== displayResults 被调用 ===');
-        console.log('当前模式 currentMode:', this.currentMode);
-        console.log('结果数据:', results);
+        console.log('显示结果 - 模式:', this.currentMode);
         
         const container = document.getElementById('results-container');
         const content = document.getElementById('results-content');
         
-        if (!container || !content) {
-            console.log('错误: container 或 content 元素不存在');
-            return;
-        }
+        if (!container || !content) return;
 
         content.innerHTML = '';
 
         if (this.currentMode === 'single' || this.currentMode === 'device-recognition' || this.currentMode === 'single-diagnosis') {
-            console.log('调用 displaySingleResult');
             this.displaySingleResult(results, content);
         } else if (this.currentMode === 'batch' || this.currentMode === 'batch-diagnosis') {
             this.displayBatchResults(results, content);
